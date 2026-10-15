@@ -28,7 +28,7 @@ export function CatalogImport({file, onClose}: {file?: File; onClose:()=>void}) 
     if(!report||!confirmed||busy)return;
     setBusy(true);setError('');
     try {const result=await request('products/catalog-import/',{confirmed:true,confirmation_token:report.confirmation_token});
-      setReport(result);setFinished(true);void client.invalidateQueries();
+      setReport(result);setFinished(true);void client.invalidateQueries({predicate: query => query.queryKey[0] !== 'session'});
     }catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
   function downloadReport() {

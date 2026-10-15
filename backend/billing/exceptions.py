@@ -5,4 +5,7 @@ from rest_framework.views import exception_handler
 def api_exception_handler(exc, context):
     if isinstance(exc, DjangoValidationError):
         exc = ValidationError(exc.message_dict if hasattr(exc, 'message_dict') else exc.messages)
-    return exception_handler(exc, context)
+    response = exception_handler(exc, context)
+    if response is not None and getattr(exc, 'get_codes', lambda: None)() == 'csrf_failed':
+        response.data['code'] = 'csrf_failed'
+    return response

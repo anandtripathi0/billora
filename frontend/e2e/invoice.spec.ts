@@ -138,7 +138,7 @@ test('complete billing workflow with real authentication, PDFs, QR and manual sh
   await page.getByRole('button',{name:'Archive product',exact:true}).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByLabel('Include archived').check();
-  await expect(page.getByRole('row').filter({hasText:'E2E Notebook'})).toContainText('Archived');
+  await expect(page.getByRole('row').filter({hasText:'E2E Notebook'})).toContainText('Inactive');
   await page.goto('/dashboard');
   await expect(page.getByRole('heading',{name:'Hii, Priya! 👋'})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);

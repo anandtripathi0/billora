@@ -1,0 +1,132 @@
+{
+  "email": [
+    {
+      "Plan": {
+        "Node Type": "Seq Scan",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "billing_user",
+        "Alias": "billing_user",
+        "Startup Cost": 0.0,
+        "Total Cost": 10.45,
+        "Plan Rows": 1,
+        "Plan Width": 2019,
+        "Disabled": false,
+        "Filter": "(upper((email)::text) = 'SYNTHETIC@EXAMPLE.COM'::text)"
+      }
+    }
+  ],
+  "history": [
+    {
+      "Plan": {
+        "Node Type": "Limit",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Startup Cost": 72.73,
+        "Total Cost": 72.8,
+        "Plan Rows": 25,
+        "Plan Width": 175,
+        "Disabled": false,
+        "Plans": [
+          {
+            "Node Type": "Sort",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Startup Cost": 72.73,
+            "Total Cost": 75.42,
+            "Plan Rows": 1074,
+            "Plan Width": 175,
+            "Disabled": false,
+            "Sort Key": [
+              "date DESC",
+              "created_at DESC"
+            ],
+            "Plans": [
+              {
+                "Node Type": "Seq Scan",
+                "Parent Relationship": "Outer",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Relation Name": "billing_invoice",
+                "Alias": "billing_invoice",
+                "Startup Cost": 0.0,
+                "Total Cost": 42.42,
+                "Plan Rows": 1074,
+                "Plan Width": 175,
+                "Disabled": false,
+                "Filter": "((cancelled_at IS NULL) AND (business_id = '692a2b06-4eac-4f26-a71c-a5fac27e87d0'::uuid))"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "products": [
+    {
+      "Plan": {
+        "Node Type": "Limit",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Startup Cost": 0.0,
+        "Total Cost": 7.5,
+        "Plan Rows": 2,
+        "Plan Width": 168,
+        "Disabled": false,
+        "Plans": [
+          {
+            "Node Type": "Seq Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Relation Name": "billing_product",
+            "Alias": "billing_product",
+            "Startup Cost": 0.0,
+            "Total Cost": 7.5,
+            "Plan Rows": 2,
+            "Plan Width": 168,
+            "Disabled": false,
+            "Filter": "(is_active AND (business_id = '692a2b06-4eac-4f26-a71c-a5fac27e87d0'::uuid) AND (upper((name)::text) ~~ '%RICE%'::text))"
+          }
+        ]
+      }
+    }
+  ],
+  "customer": [
+    {
+      "Plan": {
+        "Node Type": "Index Scan",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Scan Direction": "Forward",
+        "Index Name": "unique_active_customer_mobile",
+        "Relation Name": "billing_customer",
+        "Alias": "billing_customer",
+        "Startup Cost": 0.14,
+        "Total Cost": 8.16,
+        "Plan Rows": 1,
+        "Plan Width": 571,
+        "Disabled": false,
+        "Index Cond": "((business_id = '692a2b06-4eac-4f26-a71c-a5fac27e87d0'::uuid) AND ((mobile)::text = '+919876543210'::text))"
+      }
+    }
+  ],
+  "email_index_eligibility": [
+    {
+      "Plan": {
+        "Node Type": "Seq Scan",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "billing_user",
+        "Alias": "billing_user",
+        "Startup Cost": 0.0,
+        "Total Cost": 10.45,
+        "Plan Rows": 1,
+        "Plan Width": 2019,
+        "Disabled": true,
+        "Filter": "(upper((email)::text) = 'SYNTHETIC@EXAMPLE.COM'::text)"
+      }
+    }
+  ]
+}

@@ -165,7 +165,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 
 class InvoiceSerializer(serializers.ModelSerializer):
     business_snapshot = serializers.SerializerMethodField()
-    items = InvoiceItemSerializer(many=True, read_only=True)
+    items = InvoiceItemSerializer(source='ordered_items', many=True, read_only=True)
     balance = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
     status = serializers.CharField(read_only=True)
     def get_business_snapshot(self, obj): return {**obj.business_snapshot, 'logo_data': obj.logo_data}

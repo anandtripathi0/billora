@@ -337,18 +337,25 @@ class DashboardView(APIView):
         today = timezone.now().astimezone(ZoneInfo(business.settings.timezone)).date()
         invoices = m.Invoice.objects.filter(business=business, cancelled_at__isnull=True)
         products = m.Product.objects.filter(business=business, is_active=True)
-        recent = invoices.order_by('-created_at')[:5]
+        section = request.query_params.get('section', 'all')
+        if section not in ['all', 'summary', 'widgets']: raise ValidationError('Invalid dashboard section.')
         month_index = today.year * 12 + today.month - 1 - 5
         first_month = date(month_index // 12, month_index % 12 + 1, 1)
         revenue = invoices.filter(date__gte=first_month, date__lte=today).annotate(month=TruncMonth('date')).values('month').annotate(revenue=Sum('total')).order_by('month')
         top = m.InvoiceItem.objects.filter(invoice__business=business, invoice__cancelled_at__isnull=True).values('product_id', 'description').annotate(quantity=Sum('quantity'), revenue=Sum('total')).order_by('-revenue')[:5]
-        return Response({'today': str(today), 'today_sales': aggregate_money(invoices.filter(date=today), 'total'),
-            'monthly_sales': aggregate_money(invoices.filter(date__gte=today.replace(day=1), date__lte=today), 'total'),
-            'total_invoices': invoices.count(), 'total_products': products.count(), 'total_customers': m.Customer.objects.filter(business=business, merged_into__isnull=True).count(),
-            'pending_payments': aggregate_money(invoices, F('total') - F('paid_amount')),
-            'low_stock_count': products.filter(stock__lte=F('low_stock_threshold')).count(),
-            'low_stock': s.ProductSerializer(products.filter(stock__lte=F('low_stock_threshold')).order_by('stock')[:5], many=True).data,
-            'recent_invoices': s.InvoiceListSerializer(recent, many=True).data, 'revenue': list(revenue), 'top_products': list(top)})
+        result = {}
+        if section != 'widgets':
+            result.update(invoices.aggregate(
+                today_sales=Sum('total', filter=Q(date=today), default=Decimal(0)),
+                monthly_sales=Sum('total', filter=Q(date__gte=today.replace(day=1), date__lte=today), default=Decimal(0)),
+                total_invoices=Count('pk'), pending_payments=Sum(F('total')-F('paid_amount'), default=Decimal(0))))
+            result.update(products.aggregate(total_products=Count('pk'), low_stock_count=Count('pk', filter=Q(stock__lte=F('low_stock_threshold')))))
+            result.update(today=str(today), total_customers=m.Customer.objects.filter(business=business, merged_into__isnull=True).count(),
+                low_stock=s.ProductSerializer(products.filter(stock__lte=F('low_stock_threshold')).select_related('category').order_by('stock')[:5], many=True).data,
+                recent_invoices=s.InvoiceListSerializer(invoices.defer('business_snapshot', 'notes', 'request_hash').order_by('-created_at')[:5], many=True).data)
+        if section != 'summary':
+            result.update(revenue=list(revenue), top_products=list(top))
+        return Response(result)
 
 class ReportsView(APIView):
     permission_classes = [TenantPermission]

@@ -1,0 +1,1074 @@
+{
+  "environment": "Local Django test client, real Neon PostgreSQL, real Argon2; isolated synthetic data; excludes HTTP proxy/browser",
+  "fixture": {
+    "products": 200,
+    "invoices": 1000
+  },
+  "summary": {
+    "first_csrf": {
+      "n": 1,
+      "p50_ms": 30.0,
+      "p95_ms": null,
+      "queries_median": 0,
+      "db_p50_ms": 0
+    },
+    "csrf": {
+      "n": 23,
+      "p50_ms": 3.33,
+      "p95_ms": 655.05,
+      "queries_median": 0,
+      "db_p50_ms": 0
+    },
+    "login": {
+      "n": 20,
+      "p50_ms": 12886.01,
+      "p95_ms": 16853.48,
+      "queries_median": 16.0,
+      "db_p50_ms": 10561.17
+    },
+    "me": {
+      "n": 20,
+      "p50_ms": 2473.81,
+      "p95_ms": 3819.66,
+      "queries_median": 5.0,
+      "db_p50_ms": 2456.65
+    },
+    "dashboard": {
+      "n": 20,
+      "p50_ms": 8038.12,
+      "p95_ms": 11271.82,
+      "queries_median": 16.0,
+      "db_p50_ms": 7991.03
+    },
+    "products": {
+      "n": 20,
+      "p50_ms": 3027.6,
+      "p95_ms": 4641.92,
+      "queries_median": 6.0,
+      "db_p50_ms": 3000.01
+    },
+    "customer_lookup": {
+      "n": 20,
+      "p50_ms": 2547.26,
+      "p95_ms": 3186.51,
+      "queries_median": 5.0,
+      "db_p50_ms": 2523.01
+    },
+    "invoice": {
+      "n": 20,
+      "p50_ms": 9829.2,
+      "p95_ms": 11094.88,
+      "queries_median": 17.0,
+      "db_p50_ms": 9065.51
+    },
+    "logout": {
+      "n": 20,
+      "p50_ms": 1929.89,
+      "p95_ms": 2853.85,
+      "queries_median": 4.0,
+      "db_p50_ms": 1919.64
+    },
+    "register": {
+      "n": 3,
+      "p50_ms": 10652.25,
+      "p95_ms": null,
+      "queries_median": 23,
+      "db_p50_ms": 9031.54
+    }
+  },
+  "samples": {
+    "first_csrf": [
+      {
+        "ms": 30.0,
+        "queries": 0,
+        "db_ms": 0
+      }
+    ],
+    "csrf": [
+      {
+        "ms": 4.02,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 3.45,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 1.79,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 3.2,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 2.12,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 2.77,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 2.17,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 2.84,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 3.62,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 2.75,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 2.49,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 3.56,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 4.13,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 4.26,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 3.49,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 2.91,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 4.26,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 3.7,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 3.33,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 3.08,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 3.07,
+        "queries": 0,
+        "db_ms": 0
+      },
+      {
+        "ms": 1840.88,
+        "queries": 2,
+        "db_ms": 1834.28
+      },
+      {
+        "ms": 655.05,
+        "queries": 2,
+        "db_ms": 648.77
+      }
+    ],
+    "login": [
+      {
+        "ms": 20646.39,
+        "queries": 22,
+        "db_ms": 17007.93
+      },
+      {
+        "ms": 14662.94,
+        "queries": 19,
+        "db_ms": 12351.58
+      },
+      {
+        "ms": 16853.48,
+        "queries": 19,
+        "db_ms": 15451.47
+      },
+      {
+        "ms": 14627.42,
+        "queries": 19,
+        "db_ms": 12369.12
+      },
+      {
+        "ms": 11580.36,
+        "queries": 19,
+        "db_ms": 9798.64
+      },
+      {
+        "ms": 13836.31,
+        "queries": 16,
+        "db_ms": 11104.26
+      },
+      {
+        "ms": 12604.74,
+        "queries": 16,
+        "db_ms": 9910.68
+      },
+      {
+        "ms": 11993.0,
+        "queries": 16,
+        "db_ms": 9704.76
+      },
+      {
+        "ms": 9244.74,
+        "queries": 16,
+        "db_ms": 7672.39
+      },
+      {
+        "ms": 8071.56,
+        "queries": 16,
+        "db_ms": 6666.93
+      },
+      {
+        "ms": 8597.98,
+        "queries": 16,
+        "db_ms": 7091.16
+      },
+      {
+        "ms": 11065.49,
+        "queries": 16,
+        "db_ms": 9237.21
+      },
+      {
+        "ms": 11277.44,
+        "queries": 16,
+        "db_ms": 9172.24
+      },
+      {
+        "ms": 13048.7,
+        "queries": 16,
+        "db_ms": 10397.57
+      },
+      {
+        "ms": 14017.61,
+        "queries": 16,
+        "db_ms": 10724.76
+      },
+      {
+        "ms": 12299.6,
+        "queries": 16,
+        "db_ms": 10061.66
+      },
+      {
+        "ms": 13661.82,
+        "queries": 16,
+        "db_ms": 10738.39
+      },
+      {
+        "ms": 14551.35,
+        "queries": 16,
+        "db_ms": 11446.25
+      },
+      {
+        "ms": 16795.24,
+        "queries": 16,
+        "db_ms": 12985.83
+      },
+      {
+        "ms": 12723.31,
+        "queries": 16,
+        "db_ms": 10954.67
+      }
+    ],
+    "me": [
+      {
+        "ms": 3675.92,
+        "queries": 5,
+        "db_ms": 3661.17
+      },
+      {
+        "ms": 3371.98,
+        "queries": 5,
+        "db_ms": 3357.33
+      },
+      {
+        "ms": 2122.07,
+        "queries": 5,
+        "db_ms": 2108.08
+      },
+      {
+        "ms": 2897.58,
+        "queries": 5,
+        "db_ms": 2881.68
+      },
+      {
+        "ms": 1873.55,
+        "queries": 5,
+        "db_ms": 1860.54
+      },
+      {
+        "ms": 2869.69,
+        "queries": 5,
+        "db_ms": 2858.37
+      },
+      {
+        "ms": 2418.8,
+        "queries": 5,
+        "db_ms": 2403.28
+      },
+      {
+        "ms": 2399.96,
+        "queries": 5,
+        "db_ms": 2382.22
+      },
+      {
+        "ms": 1959.55,
+        "queries": 5,
+        "db_ms": 1942.67
+      },
+      {
+        "ms": 1632.21,
+        "queries": 5,
+        "db_ms": 1610.75
+      },
+      {
+        "ms": 1869.78,
+        "queries": 5,
+        "db_ms": 1851.12
+      },
+      {
+        "ms": 2359.29,
+        "queries": 5,
+        "db_ms": 2340.54
+      },
+      {
+        "ms": 2110.78,
+        "queries": 5,
+        "db_ms": 2098.38
+      },
+      {
+        "ms": 4343.26,
+        "queries": 5,
+        "db_ms": 4325.21
+      },
+      {
+        "ms": 2758.95,
+        "queries": 5,
+        "db_ms": 2741.78
+      },
+      {
+        "ms": 1969.57,
+        "queries": 5,
+        "db_ms": 1956.87
+      },
+      {
+        "ms": 2886.84,
+        "queries": 5,
+        "db_ms": 2868.53
+      },
+      {
+        "ms": 2858.3,
+        "queries": 5,
+        "db_ms": 2841.65
+      },
+      {
+        "ms": 2528.81,
+        "queries": 5,
+        "db_ms": 2510.01
+      },
+      {
+        "ms": 3819.66,
+        "queries": 5,
+        "db_ms": 3805.4
+      }
+    ],
+    "dashboard": [
+      {
+        "ms": 9873.05,
+        "queries": 16,
+        "db_ms": 9827.72
+      },
+      {
+        "ms": 8645.99,
+        "queries": 16,
+        "db_ms": 8612.55
+      },
+      {
+        "ms": 11271.82,
+        "queries": 16,
+        "db_ms": 11240.59
+      },
+      {
+        "ms": 8732.11,
+        "queries": 16,
+        "db_ms": 8701.99
+      },
+      {
+        "ms": 5922.74,
+        "queries": 16,
+        "db_ms": 5896.51
+      },
+      {
+        "ms": 11131.2,
+        "queries": 16,
+        "db_ms": 11100.53
+      },
+      {
+        "ms": 8004.87,
+        "queries": 16,
+        "db_ms": 7956.87
+      },
+      {
+        "ms": 7069.31,
+        "queries": 16,
+        "db_ms": 7034.52
+      },
+      {
+        "ms": 6030.59,
+        "queries": 16,
+        "db_ms": 5995.8
+      },
+      {
+        "ms": 5490.02,
+        "queries": 16,
+        "db_ms": 5454.7
+      },
+      {
+        "ms": 5978.83,
+        "queries": 16,
+        "db_ms": 5950.51
+      },
+      {
+        "ms": 4930.85,
+        "queries": 16,
+        "db_ms": 4888.54
+      },
+      {
+        "ms": 6963.79,
+        "queries": 16,
+        "db_ms": 6933.96
+      },
+      {
+        "ms": 14330.36,
+        "queries": 16,
+        "db_ms": 14290.73
+      },
+      {
+        "ms": 9733.43,
+        "queries": 16,
+        "db_ms": 9705.42
+      },
+      {
+        "ms": 7126.48,
+        "queries": 16,
+        "db_ms": 7091.23
+      },
+      {
+        "ms": 8071.37,
+        "queries": 16,
+        "db_ms": 8025.2
+      },
+      {
+        "ms": 7897.4,
+        "queries": 16,
+        "db_ms": 7855.06
+      },
+      {
+        "ms": 8903.49,
+        "queries": 16,
+        "db_ms": 8869.98
+      },
+      {
+        "ms": 9204.93,
+        "queries": 16,
+        "db_ms": 9176.4
+      }
+    ],
+    "products": [
+      {
+        "ms": 2646.76,
+        "queries": 6,
+        "db_ms": 2609.79
+      },
+      {
+        "ms": 2500.09,
+        "queries": 6,
+        "db_ms": 2476.32
+      },
+      {
+        "ms": 4641.92,
+        "queries": 6,
+        "db_ms": 4620.19
+      },
+      {
+        "ms": 3972.0,
+        "queries": 6,
+        "db_ms": 3952.46
+      },
+      {
+        "ms": 3515.07,
+        "queries": 6,
+        "db_ms": 3481.84
+      },
+      {
+        "ms": 4841.63,
+        "queries": 6,
+        "db_ms": 4813.94
+      },
+      {
+        "ms": 1800.81,
+        "queries": 6,
+        "db_ms": 1758.94
+      },
+      {
+        "ms": 3109.21,
+        "queries": 6,
+        "db_ms": 3085.13
+      },
+      {
+        "ms": 2191.87,
+        "queries": 6,
+        "db_ms": 2166.67
+      },
+      {
+        "ms": 1907.72,
+        "queries": 6,
+        "db_ms": 1877.64
+      },
+      {
+        "ms": 2559.11,
+        "queries": 6,
+        "db_ms": 2534.82
+      },
+      {
+        "ms": 2049.98,
+        "queries": 6,
+        "db_ms": 2015.9
+      },
+      {
+        "ms": 2790.12,
+        "queries": 6,
+        "db_ms": 2765.46
+      },
+      {
+        "ms": 2797.32,
+        "queries": 6,
+        "db_ms": 2762.64
+      },
+      {
+        "ms": 3023.01,
+        "queries": 6,
+        "db_ms": 3001.45
+      },
+      {
+        "ms": 3032.18,
+        "queries": 6,
+        "db_ms": 2998.56
+      },
+      {
+        "ms": 4022.36,
+        "queries": 6,
+        "db_ms": 3985.65
+      },
+      {
+        "ms": 3740.83,
+        "queries": 6,
+        "db_ms": 3703.01
+      },
+      {
+        "ms": 4170.52,
+        "queries": 6,
+        "db_ms": 4146.32
+      },
+      {
+        "ms": 4474.11,
+        "queries": 6,
+        "db_ms": 4444.93
+      }
+    ],
+    "customer_lookup": [
+      {
+        "ms": 1532.02,
+        "queries": 5,
+        "db_ms": 1499.78
+      },
+      {
+        "ms": 2933.35,
+        "queries": 5,
+        "db_ms": 2913.73
+      },
+      {
+        "ms": 2059.11,
+        "queries": 5,
+        "db_ms": 2037.69
+      },
+      {
+        "ms": 3186.51,
+        "queries": 5,
+        "db_ms": 3160.05
+      },
+      {
+        "ms": 1821.29,
+        "queries": 5,
+        "db_ms": 1727.8
+      },
+      {
+        "ms": 2841.24,
+        "queries": 5,
+        "db_ms": 2817.29
+      },
+      {
+        "ms": 1968.62,
+        "queries": 5,
+        "db_ms": 1938.58
+      },
+      {
+        "ms": 2951.75,
+        "queries": 5,
+        "db_ms": 2914.99
+      },
+      {
+        "ms": 1663.38,
+        "queries": 5,
+        "db_ms": 1638.92
+      },
+      {
+        "ms": 1687.84,
+        "queries": 5,
+        "db_ms": 1651.4
+      },
+      {
+        "ms": 1953.45,
+        "queries": 5,
+        "db_ms": 1934.49
+      },
+      {
+        "ms": 1626.33,
+        "queries": 5,
+        "db_ms": 1587.69
+      },
+      {
+        "ms": 2795.48,
+        "queries": 5,
+        "db_ms": 2767.77
+      },
+      {
+        "ms": 2037.42,
+        "queries": 5,
+        "db_ms": 1997.5
+      },
+      {
+        "ms": 2680.89,
+        "queries": 5,
+        "db_ms": 2657.47
+      },
+      {
+        "ms": 2992.03,
+        "queries": 5,
+        "db_ms": 2955.71
+      },
+      {
+        "ms": 2705.48,
+        "queries": 5,
+        "db_ms": 2665.18
+      },
+      {
+        "ms": 3605.41,
+        "queries": 5,
+        "db_ms": 3568.59
+      },
+      {
+        "ms": 3001.68,
+        "queries": 5,
+        "db_ms": 2980.6
+      },
+      {
+        "ms": 2413.62,
+        "queries": 5,
+        "db_ms": 2388.54
+      }
+    ],
+    "invoice": [
+      {
+        "ms": 8620.95,
+        "queries": 17,
+        "db_ms": 8215.75
+      },
+      {
+        "ms": 7714.75,
+        "queries": 17,
+        "db_ms": 7367.81
+      },
+      {
+        "ms": 10140.79,
+        "queries": 17,
+        "db_ms": 9369.28
+      },
+      {
+        "ms": 10833.99,
+        "queries": 17,
+        "db_ms": 10351.48
+      },
+      {
+        "ms": 7400.61,
+        "queries": 17,
+        "db_ms": 6961.83
+      },
+      {
+        "ms": 9745.2,
+        "queries": 17,
+        "db_ms": 9385.22
+      },
+      {
+        "ms": 7802.6,
+        "queries": 17,
+        "db_ms": 7423.09
+      },
+      {
+        "ms": 9913.21,
+        "queries": 17,
+        "db_ms": 8959.37
+      },
+      {
+        "ms": 6393.07,
+        "queries": 17,
+        "db_ms": 5916.53
+      },
+      {
+        "ms": 6486.66,
+        "queries": 17,
+        "db_ms": 6121.47
+      },
+      {
+        "ms": 8737.22,
+        "queries": 17,
+        "db_ms": 8378.55
+      },
+      {
+        "ms": 7389.09,
+        "queries": 17,
+        "db_ms": 6721.09
+      },
+      {
+        "ms": 9990.85,
+        "queries": 17,
+        "db_ms": 9608.61
+      },
+      {
+        "ms": 9392.73,
+        "queries": 17,
+        "db_ms": 8549.34
+      },
+      {
+        "ms": 10700.12,
+        "queries": 17,
+        "db_ms": 9881.48
+      },
+      {
+        "ms": 9945.67,
+        "queries": 17,
+        "db_ms": 9477.21
+      },
+      {
+        "ms": 10088.01,
+        "queries": 17,
+        "db_ms": 9682.91
+      },
+      {
+        "ms": 16348.22,
+        "queries": 17,
+        "db_ms": 15594.5
+      },
+      {
+        "ms": 9930.49,
+        "queries": 17,
+        "db_ms": 9171.66
+      },
+      {
+        "ms": 11094.88,
+        "queries": 17,
+        "db_ms": 10717.3
+      }
+    ],
+    "logout": [
+      {
+        "ms": 1630.81,
+        "queries": 4,
+        "db_ms": 1609.64
+      },
+      {
+        "ms": 1740.59,
+        "queries": 4,
+        "db_ms": 1733.46
+      },
+      {
+        "ms": 1961.17,
+        "queries": 4,
+        "db_ms": 1952.62
+      },
+      {
+        "ms": 1151.78,
+        "queries": 4,
+        "db_ms": 1144.3
+      },
+      {
+        "ms": 1747.14,
+        "queries": 4,
+        "db_ms": 1737.53
+      },
+      {
+        "ms": 2688.8,
+        "queries": 4,
+        "db_ms": 2681.15
+      },
+      {
+        "ms": 1892.92,
+        "queries": 4,
+        "db_ms": 1881.53
+      },
+      {
+        "ms": 1659.14,
+        "queries": 4,
+        "db_ms": 1648.29
+      },
+      {
+        "ms": 1951.73,
+        "queries": 4,
+        "db_ms": 1943.63
+      },
+      {
+        "ms": 1418.02,
+        "queries": 4,
+        "db_ms": 1409.9
+      },
+      {
+        "ms": 2250.74,
+        "queries": 4,
+        "db_ms": 2242.14
+      },
+      {
+        "ms": 1918.42,
+        "queries": 4,
+        "db_ms": 1906.83
+      },
+      {
+        "ms": 2526.27,
+        "queries": 4,
+        "db_ms": 2514.59
+      },
+      {
+        "ms": 2853.85,
+        "queries": 4,
+        "db_ms": 2842.56
+      },
+      {
+        "ms": 1799.59,
+        "queries": 4,
+        "db_ms": 1791.59
+      },
+      {
+        "ms": 2150.83,
+        "queries": 4,
+        "db_ms": 2141.12
+      },
+      {
+        "ms": 1730.07,
+        "queries": 4,
+        "db_ms": 1707.7
+      },
+      {
+        "ms": 2760.17,
+        "queries": 4,
+        "db_ms": 2750.89
+      },
+      {
+        "ms": 1941.37,
+        "queries": 4,
+        "db_ms": 1932.45
+      },
+      {
+        "ms": 3093.57,
+        "queries": 4,
+        "db_ms": 3083.49
+      }
+    ],
+    "register": [
+      {
+        "ms": 17056.03,
+        "queries": 20,
+        "db_ms": 13482.97
+      },
+      {
+        "ms": 9961.58,
+        "queries": 23,
+        "db_ms": 7829.24
+      },
+      {
+        "ms": 10652.25,
+        "queries": 23,
+        "db_ms": 9031.54
+      }
+    ]
+  },
+  "password_verify_ms": [
+    124.04809996951371,
+    131.6025999840349,
+    135.54619997739792,
+    144.58159997593611,
+    129.6734999632463
+  ],
+  "plans": {
+    "email_lookup": [
+      {
+        "Plan": {
+          "Node Type": "Seq Scan",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Relation Name": "billing_user",
+          "Alias": "billing_user",
+          "Startup Cost": 0.0,
+          "Total Cost": 10.45,
+          "Plan Rows": 1,
+          "Plan Width": 2019,
+          "Disabled": false,
+          "Filter": "(upper((email)::text) = 'PERF-14F6E4252D-0@EXAMPLE.COM'::text)"
+        }
+      }
+    ],
+    "product_search": [
+      {
+        "Plan": {
+          "Node Type": "Limit",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Startup Cost": 7.51,
+          "Total Cost": 7.51,
+          "Plan Rows": 2,
+          "Plan Width": 168,
+          "Disabled": false,
+          "Plans": [
+            {
+              "Node Type": "Sort",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 7.51,
+              "Total Cost": 7.51,
+              "Plan Rows": 2,
+              "Plan Width": 168,
+              "Disabled": false,
+              "Sort Key": [
+                "id DESC"
+              ],
+              "Plans": [
+                {
+                  "Node Type": "Seq Scan",
+                  "Parent Relationship": "Outer",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Relation Name": "billing_product",
+                  "Alias": "billing_product",
+                  "Startup Cost": 0.0,
+                  "Total Cost": 7.5,
+                  "Plan Rows": 2,
+                  "Plan Width": 168,
+                  "Disabled": false,
+                  "Filter": "(is_active AND (business_id = '692a2b06-4eac-4f26-a71c-a5fac27e87d0'::uuid) AND (upper((name)::text) ~~ '%RICE%'::text))"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "invoice_history": [
+      {
+        "Plan": {
+          "Node Type": "Limit",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Startup Cost": 72.73,
+          "Total Cost": 72.8,
+          "Plan Rows": 25,
+          "Plan Width": 175,
+          "Disabled": false,
+          "Plans": [
+            {
+              "Node Type": "Sort",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 72.73,
+              "Total Cost": 75.42,
+              "Plan Rows": 1074,
+              "Plan Width": 175,
+              "Disabled": false,
+              "Sort Key": [
+                "date DESC",
+                "created_at DESC"
+              ],
+              "Plans": [
+                {
+                  "Node Type": "Seq Scan",
+                  "Parent Relationship": "Outer",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Relation Name": "billing_invoice",
+                  "Alias": "billing_invoice",
+                  "Startup Cost": 0.0,
+                  "Total Cost": 42.42,
+                  "Plan Rows": 1074,
+                  "Plan Width": 175,
+                  "Disabled": false,
+                  "Filter": "((cancelled_at IS NULL) AND (business_id = '692a2b06-4eac-4f26-a71c-a5fac27e87d0'::uuid))"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "customer_lookup": [
+      {
+        "Plan": {
+          "Node Type": "Index Scan",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Scan Direction": "Forward",
+          "Index Name": "unique_active_customer_mobile",
+          "Relation Name": "billing_customer",
+          "Alias": "billing_customer",
+          "Startup Cost": 0.14,
+          "Total Cost": 8.16,
+          "Plan Rows": 1,
+          "Plan Width": 571,
+          "Disabled": false,
+          "Index Cond": "((business_id = '692a2b06-4eac-4f26-a71c-a5fac27e87d0'::uuid) AND ((mobile)::text = '+919876543210'::text))"
+        }
+      }
+    ]
+  }
+}

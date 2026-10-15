@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'corsheaders', 'rest_framework', 'billing',
 ]
 MIDDLEWARE = [
+    'billing.timing.TimingMiddleware',
     'django.middleware.security.SecurityMiddleware', 'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware', 'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware', 'django.middleware.csrf.CsrfViewMiddleware',
@@ -59,6 +60,9 @@ if flag('DB_POOL_ENABLED', True):
 if flag('DB_SSL_REQUIRE', not DEBUG and not TESTING):
     DATABASES['default'].setdefault('OPTIONS', {})['sslmode'] = 'require'
 AUTH_USER_MODEL = 'billing.User'
+# Keep existing ModelBackend sessions valid until they expire or sign in again.
+AUTHENTICATION_BACKENDS = ['billing.authentication.TenantBackend', 'django.contrib.auth.backends.ModelBackend']
+CSRF_FAILURE_VIEW = 'billing.authentication.csrf_failure'
 PASSWORD_HASHERS = ['django.contrib.auth.hashers.Argon2PasswordHasher', 'django.contrib.auth.hashers.PBKDF2PasswordHasher']
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -67,7 +71,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': ['rest_framework.authentication.SessionAuthentication'],
+    'DEFAULT_AUTHENTICATION_CLASSES': ['billing.authentication.CSRFSessionAuthentication'],
     'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination', 'PAGE_SIZE': 25,
     'DEFAULT_RENDERER_CLASSES': ['rest_framework.renderers.JSONRenderer'],
@@ -110,5 +114,8 @@ PASSWORD_RESET_TIMEOUT = 3600
 BILLING_ENABLED = flag('BILLING_ENABLED')
 AUTOMATIC_WHATSAPP_ENABLED = False  # Deliberately unavailable until a verified provider + durable worker exist.
 LOGGING = {'version': 1, 'disable_existing_loggers': False,
-    'handlers': {'console': {'class': 'logging.StreamHandler'}},
+    'filters': {'safe_request': {'()':'billing.timing.SafeRequestLog'}},
+    'handlers': {'console': {'class': 'logging.StreamHandler', 'filters':['safe_request']}},
+    'loggers': {name: {'handlers':['console'], 'level':'INFO', 'propagate':False}
+        for name in ['django.server', 'django.request', 'django.security.csrf']},
     'root': {'handlers': ['console'], 'level': os.environ.get('LOG_LEVEL', 'INFO')}}

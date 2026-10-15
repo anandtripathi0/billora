@@ -1,0 +1,36 @@
+{
+  "samples": {
+    "homepage": [
+      2347
+    ],
+    "registration_to_dashboard": [
+      24621
+    ],
+    "login_to_dashboard": [
+      23862,
+      15557,
+      13983
+    ],
+    "products_navigation": [
+      237,
+      174,
+      235
+    ],
+    "dashboard_navigation": [
+      198,
+      272,
+      208
+    ]
+  },
+  "counts": {
+    "/api/auth/csrf/": 7,
+    "/api/auth/register/": 1,
+    "/api/dashboard/": 5,
+    "/api/auth/logout/": 3,
+    "/api/auth/login/": 3,
+    "/api/products/": 3,
+    "/api/products/filters/": 3,
+    "/api/auth/me/": 1
+  },
+  "errors": []
+}

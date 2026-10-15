@@ -98,7 +98,7 @@ def quote_payload(lines, totals):
 @transaction.atomic
 def create_invoice(user, business, data):
     # Serializes numbers and all writes for a tenant; locks are held until every row is committed.
-    business = Business.objects.select_for_update().get(pk=business.pk)
+    business = Business.objects.select_related('settings').select_for_update(of=('self',)).get(pk=business.pk)
     if not business.is_active: raise ValidationError('This business is suspended.')
     request_hash = hashlib.sha256(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()
     existing = Invoice.objects.filter(business=business, idempotency_key=data['idempotency_key']).first()

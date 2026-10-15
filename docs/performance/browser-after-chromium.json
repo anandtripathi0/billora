@@ -1,0 +1,42 @@
+{
+  "samples": {
+    "homepage": [
+      936
+    ],
+    "registration_to_dashboard": [
+      15700
+    ],
+    "login_to_dashboard": [
+      8178,
+      9759,
+      8964
+    ],
+    "products_navigation": [
+      661,
+      233,
+      248
+    ],
+    "dashboard_navigation": [
+      434,
+      203,
+      194
+    ]
+  },
+  "counts": {
+    "/api/auth/csrf/": 1,
+    "/api/auth/register/": 1,
+    "/api/dashboard/": 10,
+    "/api/auth/logout/": 3,
+    "/api/auth/login/": 3,
+    "/api/products/": 3,
+    "/api/products/filters/": 3,
+    "/api/auth/me/": 1
+  },
+  "errors": [],
+  "browserCpu": {
+    "LayoutDuration": 0.018396,
+    "RecalcStyleDuration": 0.025791,
+    "ScriptDuration": 0.120989,
+    "TaskDuration": 0.686268
+  }
+}

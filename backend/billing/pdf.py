@@ -103,7 +103,7 @@ def invoice_pdf(invoice):
          (f"\nDue: {invoice.due_date:%d %b %Y}" if invoice.due_date else '')],
     ], [88 * mm, 88 * mm]), Spacer(1, 16)]
     rows = [['PRODUCT / HSN', 'QTY', 'UNIT (INR)', 'DISCOUNT', 'TAX', 'TOTAL (INR)']]
-    for item in invoice.items.all().order_by('id'):
+    for item in invoice.ordered_items:
         tax = item.cgst + item.sgst + item.igst
         rows.append([f'{item.description}\n{item.sku}' + (f' · HSN {item.hsn_code}' if item.hsn_code else ''),
                      f'{item.quantity.normalize():f} {item.unit}', f'{item.unit_price:.2f}' + (' incl. tax' if item.price_includes_tax else ''),

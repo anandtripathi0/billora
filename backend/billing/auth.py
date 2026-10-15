@@ -7,7 +7,7 @@ from django.contrib.auth import authenticate, login, logout, update_session_auth
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
-from django.db import transaction, IntegrityError
+from django.db import transaction, IntegrityError, connection
 from django.middleware.csrf import get_token
 from django.utils import timezone
 from django.utils.encoding import force_bytes
@@ -22,9 +22,25 @@ from .models import User, Business, BusinessSettings, Membership, RateLimit
 from .serializers import RegisterSerializer, UserSerializer, BusinessSerializer
 from .services import audit
 from .flags import require_feature
+from .timing import span
 
 def rate_limit(scope, identity, limit=10, seconds=900):
     key = hashlib.sha256(f'{scope}:{identity}'.encode()).hexdigest()
+    if connection.vendor == 'postgresql':
+        now = timezone.now()
+        # Atomic upsert holds only this bucket's row lock for one statement.
+        # The WHERE cap prevents concurrent attempts from exceeding the limit.
+        with span('throttle_ms'), connection.cursor() as cursor:
+            cursor.execute('''INSERT INTO billing_ratelimit (key, attempts, reset_at) VALUES (%s, 1, %s)
+                ON CONFLICT (key) DO UPDATE SET
+                attempts = CASE WHEN billing_ratelimit.reset_at <= %s THEN 1 ELSE billing_ratelimit.attempts + 1 END,
+                reset_at = CASE WHEN billing_ratelimit.reset_at <= %s THEN EXCLUDED.reset_at ELSE billing_ratelimit.reset_at END
+                WHERE billing_ratelimit.reset_at <= %s OR billing_ratelimit.attempts < %s
+                RETURNING reset_at''', [key, now + timedelta(seconds=seconds), now, now, now, limit])
+            if cursor.fetchone() is not None: return
+            cursor.execute('SELECT reset_at FROM billing_ratelimit WHERE key = %s', [key])
+            row = cursor.fetchone()
+        raise Throttled(wait=max(1, int((row[0] - now).total_seconds())) if row else seconds)
     with transaction.atomic():
         row, _ = RateLimit.objects.get_or_create(key=key, defaults={'reset_at': timezone.now() + timedelta(seconds=seconds)})
         row = RateLimit.objects.select_for_update().get(pk=key)
@@ -43,6 +59,11 @@ def me_data(user):
 @method_decorator(csrf_protect, name='dispatch')
 class AuthView(APIView):
     permission_classes = [AllowAny]
+    def get_authenticators(self):
+        # Public bootstrap/auth actions do not need to deserialize an old session.
+        if self.kwargs.get('action') in ['csrf', 'login', 'register', 'forgot-password', 'reset-password']:
+            return []
+        return super().get_authenticators()
     def get(self, request, action):
         if action == 'csrf': return Response({'csrfToken': get_token(request)})
         if action == 'me' and request.user.is_authenticated: return Response(me_data(request.user))
@@ -58,28 +79,29 @@ class AuthView(APIView):
             require_feature('REGISTRATION_ENABLED')
             serializer = RegisterSerializer(data=request.data); serializer.is_valid(raise_exception=True)
             data = serializer.validated_data
+            with span('password_ms'):
+                user = User(username=data['email'], email=data['email'], first_name=data['owner_name'], mobile=data['mobile'])
+                user.set_password(data['password'])
             try:
                 with transaction.atomic():
-                    user = User.objects.create_user(username=data['email'], email=data['email'], password=data['password'],
-                        first_name=data['owner_name'], mobile=data['mobile'])
+                    user.save()
                     business = Business.objects.create(name=data['business_name'], mobile=data['mobile'])
                     BusinessSettings.objects.create(business=business)
                     Membership.objects.create(user=user, business=business, role='owner')
                     audit(user, business, 'account.registered', user.pk)
             except IntegrityError: raise ValidationError('An account already uses this email.')
-            login(request, user)
-            return Response(me_data(user), status=201)
+            login(request, user, backend='billing.authentication.TenantBackend')
+            return Response({**me_data(user), 'csrfToken':get_token(request)}, status=201)
         if action == 'login':
-            account = User.objects.filter(email__iexact=email).only('username').first()
-            user = authenticate(request, username=account.username if account else email, password=request.data.get('password', ''))
+            user = authenticate(request, username=email, password=request.data.get('password', ''))
             if not user: return Response({'detail': 'Invalid email or password.'}, status=400)
             membership = getattr(user, 'membership', None)
             if membership and not membership.business.is_active: return Response({'detail': 'Your business is suspended.'}, status=403)
             login(request, user)
             audit(user, membership.business if membership else None, 'auth.login', user.pk)
-            return Response(me_data(user))
+            return Response({**me_data(user), 'csrfToken':get_token(request)})
         if action == 'logout':
-            logout(request); return Response({'detail': 'Signed out.'})
+            logout(request); return Response({'detail': 'Signed out.', 'csrfToken':get_token(request)})
         if action == 'forgot-password':
             user = User.objects.filter(email__iexact=email, is_active=True).first()
             if user:

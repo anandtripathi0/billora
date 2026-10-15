@@ -1,5 +1,7 @@
 # Billora
 
+Measured authentication and database optimizations, timing instrumentation, results and deployment commands: [performance report](docs/PERFORMANCE.md).
+
 Retail billing now includes mobile lookup, customer collections, full cancellation/refund records, 58/80 mm receipts and an optional paired local ESC/POS agent. See [thermal printing and deployment setup](docs/THERMAL_PRINTING.md).
 
 A Next.js + Django billing workspace for Indian businesses, with a premium cream interface with bundled Geist typography, real session authentication, tenant-isolated records, inventory, invoices, payments, and reports.

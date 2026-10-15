@@ -4,6 +4,8 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models import Q
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.utils.functional import cached_property
+from django.db.models.functions import Upper
 
 ZERO = Decimal('0.00')
 
@@ -11,6 +13,11 @@ class User(AbstractUser):
     username = models.CharField(max_length=254, unique=True)
     email = models.EmailField(unique=True)
     mobile = models.CharField(max_length=16, blank=True)
+    class Meta:
+        verbose_name = 'user'
+        verbose_name_plural = 'users'
+        abstract = False
+        indexes = [models.Index(Upper('email'), name='billing_user_email_upper')]
 
 class Business(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -135,16 +142,21 @@ class Invoice(TenantModel):
         constraints = [models.UniqueConstraint(fields=['business', 'number'], name='unique_invoice_number'),
             models.UniqueConstraint(fields=['business', 'idempotency_key'], name='unique_invoice_submission'),
             models.CheckConstraint(condition=Q(total__gte=0, paid_amount__gte=0, paid_amount__lte=models.F('total')), name='valid_invoice_payment')]
-        indexes = [models.Index(fields=['business', '-date']), models.Index(fields=['business', 'customer'])]
+        indexes = [models.Index(fields=['business', '-date']), models.Index(fields=['business', 'customer']),
+            models.Index(fields=['business', '-date', '-created_at'], name='billing_invoice_history')]
     @property
     def balance(self): return ZERO if self.cancelled_at else self.total - self.paid_amount
     @property
     def status(self): return 'cancelled' if self.cancelled_at else 'paid' if self.balance == 0 else 'partial' if self.paid_amount > 0 else 'unpaid'
-    @property
+    @cached_property
     def logo_data(self):
         key = self.business_snapshot.get('logo_key')
         if not key: return self.business_snapshot.get('logo_data', '')
         return InvoiceLogo.objects.filter(pk=key, business_id=self.business_id).values_list('data', flat=True).first() or ''
+    @cached_property
+    def ordered_items(self):
+        # Immutable invoice snapshots, cached only on this request's instance.
+        return list(self.items.order_by('id'))
 
 class InvoiceItem(models.Model):
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='items')
