@@ -1,0 +1,4 @@
+-r requirements.txt
+locust>=2.33,<3
+
+pypdf>=6.20,<7

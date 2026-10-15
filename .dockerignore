@@ -1,0 +1,17 @@
+.git
+.env
+.env.*
+**/.env
+**/.env.*
+**/node_modules
+**/.next
+**/.npm-cache
+.venv
+.buildtemp
+**/__pycache__
+**/*.sqlite3
+**/private-media
+**/staticfiles
+**/test-results
+**/playwright-report
+**/*.log

@@ -1,0 +1,55 @@
+name: Billora checks
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env: {POSTGRES_USER: billora, POSTGRES_PASSWORD: billora, POSTGRES_DB: billora}
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U billora" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DEBUG: "true"
+      DJANGO_SECRET_KEY: ci-only-disposable-secret
+      DATABASE_URL: postgresql://billora:billora@localhost:5432/billora
+      DB_SSL_REQUIRE: "false"
+      SECURE_SSL_REDIRECT: "false"
+      ALLOWED_HOSTS: localhost,127.0.0.1,testserver
+      FRONTEND_URL: http://localhost:3000
+      CSRF_TRUSTED_ORIGINS: http://localhost:3000
+      EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/setup-node@v4
+        with: {node-version: "22", cache: npm, cache-dependency-path: frontend/package-lock.json}
+      - run: pip install -r backend/requirements-dev.txt -c backend/requirements.lock
+      - run: python manage.py makemigrations --check --dry-run && python manage.py test billing.tests
+        working-directory: backend
+      - run: npm ci && npm test && npm run build
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Browser workflow against PostgreSQL
+        run: |
+          cd backend
+          python manage.py migrate --noinput
+          python manage.py runserver 127.0.0.1:8000 --noreload > ../backend-ci.log 2>&1 &
+          cd ../frontend
+          npm run start > ../frontend-ci.log 2>&1 &
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://localhost:3000/health && curl -fsS http://localhost:8000/api/health/; then break; fi
+            sleep 2
+          done
+          npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: verification-failures
+          path: |
+            frontend/test-results/
+            *-ci.log
