@@ -66,7 +66,7 @@ def calculate_lines(products, selections, discount, gst_enabled, interstate):
     return lines, totals
 
 def prepare_invoice(business, data, lock=False):
-    try: customer = Customer.objects.get(pk=data['customer'], business=business, merged_into__isnull=True)
+    try: customer = Customer.objects.get(pk=data['customer'], business=business, merged_into__isnull=True, is_active=True)
     except Customer.DoesNotExist: raise ValidationError({'customer': 'Customer does not belong to this business.'})
     qs = Product.objects.filter(business=business, pk__in=[i['product'] for i in data['items']]).order_by('pk')
     if lock: qs = qs.select_for_update()

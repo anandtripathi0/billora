@@ -15,7 +15,7 @@ class Command(BaseCommand):
         for i in range(1,51):
             email = f'load{i}@billora.local'
             if User.objects.filter(email=email).exists(): continue
-            user = User.objects.create_user(username=email,email=email,password=password,first_name=f'Load {i}')
+            user = User.objects.create_user(username=email,email=email,password=password,first_name=f'Load {i}',login_mobile=f'+919{i:09d}')
             business = Business.objects.create(name=f'Load test {i}')
             BusinessSettings.objects.create(business=business)
             Membership.objects.create(user=user,business=business)

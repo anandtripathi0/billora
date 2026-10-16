@@ -1,5 +1,7 @@
 # Billora
 
+Current signup, mobile login, safe deletion and legacy-account setup: [implementation report](docs/MOBILE_AUTH_DELETION.md).
+
 Measured authentication and database optimizations, timing instrumentation, results and deployment commands: [performance report](docs/PERFORMANCE.md).
 
 Retail billing now includes mobile lookup, customer collections, full cancellation/refund records, 58/80 mm receipts and an optional paired local ESC/POS agent. See [thermal printing and deployment setup](docs/THERMAL_PRINTING.md).
@@ -8,9 +10,9 @@ A Next.js + Django billing workspace for Indian businesses, with a premium cream
 
 ## What is implemented
 
-- Registration, login/logout, CSRF-protected server sessions, Argon2 passwords, database-backed login throttling, email password resets, profile/password updates, onboarding, and staff roles.
+- Registration, login/logout, CSRF-protected server sessions, Argon2 passwords, database-backed login throttling, verified administrator-assisted password resets, profile/password updates, onboarding, and staff roles.
 - Business dashboard with a database-backed greeting, sales totals, revenue chart, recent invoices, low-stock alerts, and best sellers.
-- Products, categories, search, archive, atomic CSV import, decimal prices, stock levels, and customer ledgers.
+- Products, categories, search, safe deletion/archive, atomic CSV import, decimal prices, stock levels, and customer ledgers.
 - Server-calculated invoice previews; transactional numbering, stock deduction and idempotency; GST/non-GST invoices; CGST/SGST or IGST; permanent price, cost, customer and business snapshots.
 - Invoice details, print, in-memory ReportLab PDF generation, revocable seven-day links, user-confirmed WhatsApp sharing, and exact-balance UPI QR codes.
 - Partial/full manual payment recording with idempotency and regenerated PDF/QR revisions.
@@ -38,12 +40,12 @@ docker compose up --build
 docker compose exec backend python manage.py createsuperuser
 ```
 
-Sign in with that account's **email** at `/login`; it opens `/super-admin`. Django Admin is at the backend's `/admin/` URL. Never use sample credentials in production.
+Sign in with that account's **username** at the backend's `/admin/` URL. Use **Users → Verify mobile / reset password** to link a verified mobile before signing in to the frontend's `/login`. Never use sample credentials in production. See [mobile authentication and deletion](docs/MOBILE_AUTH_DELETION.md) for legacy account migration and recovery.
 
 Optional development seed (only allowed with `DEBUG=true`):
 
 ```sh
-docker compose exec backend python manage.py seed_demo --email owner@billora.local --password 'Choose-A-Local-Only-Password'
+docker compose exec backend python manage.py seed_demo --mobile 9876543210 --email owner@billora.local --password 'Choose-A-Local-Only-Password'
 ```
 
 The example UPI ID in the seed is a development placeholder; replace it with your real verified business UPI ID before using any invoice for payment.
@@ -93,7 +95,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-SQLite is confined to explicitly named test settings. Normal development and production settings require PostgreSQL. The three concurrency tests deliberately skip on SQLite. CI runs them against PostgreSQL and exercises desktop/mobile registration → catalog → invoice → payment → stock checks.
+SQLite is confined to explicitly named test settings. Normal development and production settings require PostgreSQL. PostgreSQL concurrency tests deliberately skip on SQLite. CI runs them against PostgreSQL and exercises desktop/mobile registration → catalog → invoice → payment → stock checks.
 
 See [verification notes](docs/VERIFICATION.md) for the checks actually executed in this workspace and [load testing](docs/TESTING.md) for capacity testing. A load-test harness is not evidence of production capacity.
 
@@ -102,7 +104,7 @@ See [verification notes](docs/VERIFICATION.md) for the checks actually executed 
 Read [deployment instructions](docs/DEPLOYMENT.md). The short version:
 
 1. Create a Neon project and copy its **pooled** PostgreSQL connection URL with `sslmode=require`.
-2. Optionally connect an SMTP provider for real password-reset emails.
+2. Provision a trusted platform administrator and verify legacy login mobiles before asking existing users to sign in again.
 3. Push this repository to your GitHub account and create a Render Blueprint using `render.yaml`.
 4. Set the service-specific environment variables below, deploy, create a superuser, and complete the smoke checks.
 
@@ -123,12 +125,6 @@ Do not run SQLite test settings, development sample seeds, or `DEBUG=true` on a 
 | `CSRF_TRUSTED_ORIGINS` | Same frontend origin; comma-separated if using a custom domain too. No trailing slash. |
 | `SECURE_SSL_REDIRECT` | `true` |
 | `BILLING_ENABLED` | `false` |
-| `EMAIL_HOST` | SMTP server hostname. |
-| `EMAIL_PORT` | Provider's STARTTLS port. Render free blocks `587`; use a supported alternative such as `2525` or a suitable paid host. |
-| `EMAIL_HOST_USER` | SMTP username. |
-| `EMAIL_HOST_PASSWORD` | SMTP credential/app password. |
-| `EMAIL_USE_TLS` | `true` for STARTTLS. |
-| `DEFAULT_FROM_EMAIL` | Verified sender, e.g. `Billora <billing@yourdomain.com>`. |
 
 **Next.js frontend / `billora-web`:**
 
@@ -137,7 +133,7 @@ Do not run SQLite test settings, development sample seeds, or `DEBUG=true` on a 
 | `BACKEND_URL` | Full backend origin, e.g. `https://billora-api-xxxx.onrender.com`. No `/api` suffix. |
 | `NEXT_TELEMETRY_DISABLED` | `1` |
 
-`PORT` is supplied by Render. Optional backend tuning: `WEB_CONCURRENCY` (default 2), `LOG_LEVEL` (default INFO), and `EMAIL_BACKEND`. Redis, Celery, WhatsApp API credentials and payment-gateway credentials are **not required** for the current app. Business UPI IDs belong in Business settings, not environment variables. No `NEXT_PUBLIC_*` secrets are needed.
+`PORT` is supplied by Render. Optional backend tuning: `WEB_CONCURRENCY` (default 2), `LOG_LEVEL` (default INFO). Redis, Celery, WhatsApp API credentials and payment-gateway credentials are **not required** for the current app. Business UPI IDs belong in Business settings, not environment variables. No `NEXT_PUBLIC_*` secrets are needed.
 
 ## This workspace's local connection
 
@@ -161,7 +157,7 @@ npm.cmd run dev
 
 Open http://localhost:3000 and create your own account. The production start command now launches Next's standalone server with its static assets copied into place. No seeded production login is required.
 
-Local console email prints password-reset links to the backend terminal. Real email needs SMTP configuration. A localhost invoice link only works on this computer; use the deployed HTTPS FRONTEND_URL for customer-accessible links. WhatsApp sharing is free and manual: the shopkeeper presses Send. UPI settings belong in the business form, not .env.
+Forgot Password shows Contact Admin. Public email resets, OTP and recovery codes are unavailable; no SMTP variables are needed. A localhost invoice link only works on this computer; use the deployed HTTPS FRONTEND_URL for customer-accessible links. WhatsApp sharing is free and manual: the shopkeeper presses Send. UPI settings belong in the business form, not .env.
 
 ### Starter kirana inventory
 

@@ -45,7 +45,7 @@ class PerformanceSecurityTests(TestCase):
 
     def test_csrf_rotation_rejection_and_legacy_session(self):
         old=self.client.get('/api/auth/csrf/').json()['csrfToken']
-        response=self.client.post('/api/auth/login/',json.dumps({'email':self.user.email.upper(),'password':'Test-Password-2026!'}),content_type='application/json',HTTP_X_CSRFTOKEN=old)
+        response=self.client.post('/api/auth/login/',json.dumps({'mobile':self.user.login_mobile,'password':'Test-Password-2026!'}),content_type='application/json',HTTP_X_CSRFTOKEN=old)
         self.assertEqual(response.status_code,200)
         rotated=response.json()['csrfToken']; self.assertNotEqual(old,rotated)
         bad=self.client.post('/api/categories/',{'name':'Must not create'},HTTP_X_CSRFTOKEN=old)

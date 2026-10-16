@@ -3,6 +3,7 @@ import hashlib
 import io
 import logging
 import secrets
+import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
@@ -12,7 +13,7 @@ from django.db import transaction, IntegrityError, connection
 from django.db.models import Sum, F, Q, Count, DecimalField, ExpressionWrapper
 from django.db.models.functions import Coalesce, TruncMonth
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
+from rest_framework.generics import get_object_or_404
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action, api_view, permission_classes
@@ -49,10 +50,41 @@ class TenantViewSet(viewsets.ModelViewSet):
             with transaction.atomic():
                 # Stock edits and invoice creation lock the tenant in the same order.
                 m.Business.objects.select_for_update().get(pk=tenant(self.request).pk)
-                serializer.instance = type(serializer.instance).objects.select_for_update().get(pk=serializer.instance.pk, business=tenant(self.request))
+                serializer.instance = get_object_or_404(type(serializer.instance).objects.select_for_update(), pk=serializer.instance.pk, business=tenant(self.request))
+                if isinstance(serializer.instance, m.Customer) and not serializer.instance.is_active:
+                    raise ValidationError('This customer has been deleted and cannot be edited.')
                 obj = serializer.save()
                 audit(self.request.user, obj.business, f'{obj._meta.model_name}.updated', obj.pk)
         except IntegrityError: raise ValidationError('A record with this identifier already exists.')
+
+    def destroy(self, request, pk=None):
+        if request.user.membership.role not in ['owner', 'manager']:
+            raise PermissionDenied('Only store owners and managers can delete records.')
+        model = self.queryset.model
+        if model not in [m.Product, m.Customer]: raise PermissionDenied('Deletion is not supported.')
+        with transaction.atomic():
+            # Use the same tenant-first lock order as invoices, imports and stock edits.
+            business = m.Business.objects.select_for_update().get(pk=tenant(request).pk)
+            obj = get_object_or_404(model.objects.select_for_update(), pk=pk, business=business)
+            object_id = obj.pk
+            protected = m.InvoiceItem.objects.filter(product=obj).exists() if model == m.Product else (
+                obj.invoices.exists() or m.Customer.objects.filter(merged_into=obj).exists())
+            if protected:
+                obj.is_active = False
+                if model == m.Customer:
+                    obj.name = 'Deleted customer'
+                    obj.mobile = obj.whatsapp = obj.address = obj.gstin = obj.state_code = ''
+                    obj.consent_whatsapp = False
+                    obj.save(update_fields=['is_active', 'name', 'mobile', 'whatsapp', 'address', 'gstin', 'state_code', 'consent_whatsapp'])
+                else: obj.save(update_fields=['is_active'])
+                outcome = 'archived'
+            else:
+                obj.delete()
+                outcome = 'deleted'
+            audit(request.user, business, f'{model._meta.model_name}.{outcome}', object_id)
+        label = 'Product' if model == m.Product else 'Customer'
+        return Response({'outcome': outcome, 'detail': f'{label} deleted.' if outcome == 'deleted' else
+            f'{label} removed from active lists. Invoice and payment history is preserved.'})
 
 class CategoryViewSet(TenantViewSet):
     queryset = m.Category.objects.all()
@@ -61,6 +93,7 @@ class CategoryViewSet(TenantViewSet):
     search_fields = ['name']
 
 class ProductViewSet(TenantViewSet):
+    http_method_names = [*TenantViewSet.http_method_names, 'delete']
     queryset = m.Product.objects.select_related('category')
     serializer_class = s.ProductSerializer
     search_fields = ['name', 'sku', 'barcode', 'brand', 'pack_size']
@@ -143,11 +176,14 @@ class ProductViewSet(TenantViewSet):
         return Response({'imported': len(rows)})
 
 class CustomerViewSet(TenantViewSet):
+    http_method_names = [*TenantViewSet.http_method_names, 'delete']
     queryset = m.Customer.objects.all()
     serializer_class = s.CustomerSerializer
     search_fields = ['name', 'mobile', 'gstin']
     def get_queryset(self):
-        return customer_totals(super().get_queryset().filter(merged_into__isnull=True))
+        qs = super().get_queryset().filter(merged_into__isnull=True)
+        if self.action not in ['retrieve', 'ledger']: qs = qs.filter(is_active=True)
+        return customer_totals(qs)
     @action(detail=False, methods=['get'])
     def lookup(self, request):
         phone = normalize_mobile(request.query_params.get('mobile', ''))
@@ -298,24 +334,25 @@ class MembershipView(APIView):
     def get(self, request):
         if request.user.membership.role != 'owner': raise PermissionDenied('Only the owner can manage staff.')
         rows = tenant(request).memberships.select_related('user').order_by('pk')
-        return Response([{'id': row.pk, 'name': row.user.first_name, 'email': row.user.email, 'role': row.role, 'is_active': row.user.is_active} for row in rows])
+        return Response([{'id': row.pk, 'name': row.user.first_name, 'mobile': row.user.login_mobile or row.user.mobile, 'role': row.role, 'is_active': row.user.is_active} for row in rows])
     def post(self, request):
         from django.contrib.auth.password_validation import validate_password
-        from django.core.validators import validate_email
-        email = str(request.data.get('email', '')).strip().lower()
-        validate_email(email)
+        mobile = normalize_mobile(request.data.get('mobile', ''))
+        if m.User.objects.filter(Q(login_mobile=mobile) | Q(legacy_mobile_candidate=mobile, login_mobile__isnull=True)).exists():
+            raise ValidationError('This mobile number already belongs to an account. Contact the platform administrator.')
         role = request.data.get('role', 'cashier')
         if role not in ['manager', 'cashier', 'viewer']: raise ValidationError('Invalid staff role.')
         name = str(request.data.get('name', '')).strip()[:100]
         if not name: raise ValidationError('Staff name is required.')
         password = request.data.get('password', '')
-        validate_password(password, m.User(username=email, email=email, first_name=name))
+        validate_password(password, m.User(username=mobile, first_name=name))
         try:
             with transaction.atomic():
-                user = m.User.objects.create_user(username=email, email=email, first_name=name, password=password)
+                user = m.User(username=f'account-{uuid.uuid4().hex}', first_name=name, mobile=mobile, login_mobile=mobile, must_change_password=True, password_reset_at=timezone.now())
+                user.set_password(password); user.save()
                 member = m.Membership.objects.create(user=user, business=tenant(request), role=role)
                 audit(request.user, tenant(request), 'staff.created', member.pk)
-        except IntegrityError: raise ValidationError('This email is already registered.')
+        except IntegrityError: raise ValidationError('This mobile number is already registered.')
         return Response({'id': member.pk}, status=201)
     def patch(self, request):
         member = get_object_or_404(m.Membership, pk=request.data.get('id'), business=tenant(request))
@@ -350,7 +387,7 @@ class DashboardView(APIView):
                 monthly_sales=Sum('total', filter=Q(date__gte=today.replace(day=1), date__lte=today), default=Decimal(0)),
                 total_invoices=Count('pk'), pending_payments=Sum(F('total')-F('paid_amount'), default=Decimal(0))))
             result.update(products.aggregate(total_products=Count('pk'), low_stock_count=Count('pk', filter=Q(stock__lte=F('low_stock_threshold')))))
-            result.update(today=str(today), total_customers=m.Customer.objects.filter(business=business, merged_into__isnull=True).count(),
+            result.update(today=str(today), total_customers=m.Customer.objects.filter(business=business, merged_into__isnull=True, is_active=True).count(),
                 low_stock=s.ProductSerializer(products.filter(stock__lte=F('low_stock_threshold')).select_related('category').order_by('stock')[:5], many=True).data,
                 recent_invoices=s.InvoiceListSerializer(invoices.defer('business_snapshot', 'notes', 'request_hash').order_by('-created_at')[:5], many=True).data)
         if section != 'summary':
@@ -469,7 +506,7 @@ class AdminFlagViewSet(AdminPlanViewSet):
 class AuditSerializer(s.serializers.ModelSerializer):
     actor_email = s.serializers.CharField(source='actor.email', read_only=True, default='System')
     business_name = s.serializers.CharField(source='business.name', read_only=True, default='Platform')
-    class Meta: model = m.AuditLog; fields = ['id', 'actor_email', 'business_name', 'action', 'object_id', 'created_at']
+    class Meta: model = m.AuditLog; fields = ['id', 'actor_email', 'business_name', 'action', 'object_id', 'verification_reference', 'created_at']
 
 class AdminAuditViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [SuperAdminPermission]

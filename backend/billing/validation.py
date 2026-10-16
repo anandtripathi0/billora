@@ -6,7 +6,7 @@ def mobile(value):
     digits = re.sub(r'[\s()+-]', '', str(value))
     if len(digits) == 10:
         digits = '91' + digits
-    if not re.fullmatch(r'91[6-9]\d{9}', digits):
+    if not re.fullmatch(r'91[6-9][0-9]{9}', digits):
         raise ValidationError('Enter a valid Indian mobile number.')
     return '+' + digits
 

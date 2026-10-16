@@ -1,6 +1,6 @@
 # Verification and load testing
 
-Backend tests cover authentication/CSRF/throttling, registration, password reset, tenant and role isolation, server-side calculations, largest-remainder discounts, stock rollback, unique numbering, duplicate submissions, snapshots, exact-balance UPI QR, WhatsApp link encoding, payment validation/idempotency, token expiry/revocation, CSV rollback/formula escaping, reports and free pricing.
+Backend tests cover authentication/CSRF/throttling, registration, verified administrative password reset, safe deletion, tenant and role isolation, server-side calculations, largest-remainder discounts, stock rollback, unique numbering, duplicate submissions, snapshots, exact-balance UPI QR, WhatsApp link encoding, payment validation/idempotency, token expiry/revocation, CSV rollback/formula escaping, reports and free pricing.
 
 Three `TransactionTestCase` scenarios require real PostgreSQL: parallel distinct invoice numbers/stock updates, parallel retries with one idempotency key, and simultaneous overselling. They skip with an explicit reason under SQLite test settings. CI supplies PostgreSQL 17.
 
@@ -27,7 +27,7 @@ When PostgreSQL/Docker is not installed, use `config.test_settings` for in-memor
 
 PDF generation uses ReportLab and runs in ordinary Python on Windows and Linux. The PDF tests parse real output with pypdf, verify saved snapshots, totals, QR image embedding, paid revisions, multi-page headers and public downloads without storage. Install `requirements-dev.txt` for the reader used in tests.
 
-The expanded desktop/mobile browser workflow also checks homepage, invalid login, password confirmation, real registration, refresh/session cookies, cream colors, product edit/archive, customer edit/ledger, invoice GST/discounts, exact UPI amount, a real PDF download, public-link access/revocation, logout/relogin and zero uncaught page errors. WhatsApp navigation is intercepted: the URL/message/popup are verified, but no message is sent.
+The expanded desktop/mobile browser workflow also checks homepage, invalid mobile login, password-change confirmation, three-field registration, refresh/session cookies, cream colors, product edit/archive, customer edit/ledger, invoice GST/discounts, exact UPI amount, a real PDF download, public-link access/revocation, logout/relogin and zero uncaught page errors. WhatsApp navigation is intercepted: the URL/message/popup are verified, but no message is sent.
 
 To run real PostgreSQL locking tests in a separate temporary database (the role must have CREATEDB):
 

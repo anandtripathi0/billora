@@ -1,0 +1,7 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Account: <strong>{{ target.username }}</strong> · Store: {{ target.membership.business.name|default:"Platform account" }}</p>
+<p>Independently verify that the requester owns this account and store before making changes. A phone number alone is not proof of ownership. If verification is incomplete, refuse the reset.</p>
+<p>Linking a verified login mobile preserves the existing password. A password reset signs out existing sessions and requires the user to choose a new password before accessing their workspace. Deliver the temporary password privately; it expires after 24 hours. Never put passwords in the case reference.</p>
+{% if form %}<form method="post">{% csrf_token %}{{ form.as_p }}<input type="submit" value="Save verified account change"></form>{% endif %}
+{% endblock %}

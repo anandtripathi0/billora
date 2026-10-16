@@ -4,6 +4,7 @@ import re
 from decimal import Decimal
 from PIL import Image, UnidentifiedImageError
 from django.contrib.auth.password_validation import validate_password
+from django.db.models import Q
 from rest_framework import serializers
 from . import models as m
 from .validation import mobile as normalize_mobile, gstin, state, timezone_name
@@ -11,26 +12,21 @@ from .validation import mobile as normalize_mobile, gstin, state, timezone_name
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.User
-        fields = ['id', 'first_name', 'email', 'mobile', 'is_superuser']
-        read_only_fields = ['id', 'email', 'is_superuser']
+        fields = ['id', 'first_name', 'email', 'mobile', 'login_mobile', 'is_superuser', 'must_change_password']
+        read_only_fields = ['id', 'email', 'mobile', 'login_mobile', 'is_superuser', 'must_change_password']
     validate_mobile = staticmethod(normalize_mobile)
 
 class RegisterSerializer(serializers.Serializer):
-    owner_name = serializers.CharField(max_length=100)
-    business_name = serializers.CharField(max_length=160)
-    email = serializers.EmailField(max_length=254)
+    store_name = serializers.CharField(max_length=160)
     mobile = serializers.CharField(max_length=20)
     password = serializers.CharField(write_only=True, max_length=128)
-    confirm_password = serializers.CharField(write_only=True, max_length=128)
-    validate_mobile = staticmethod(normalize_mobile)
-    def validate_email(self, value):
-        value = value.strip().lower()
-        if m.User.objects.filter(email__iexact=value).exists(): raise serializers.ValidationError('An account already uses this email.')
+    def validate_mobile(self, value):
+        value = normalize_mobile(value)
+        if m.User.objects.filter(Q(login_mobile=value) | Q(legacy_mobile_candidate=value, login_mobile__isnull=True)).exists():
+            raise serializers.ValidationError('An account already uses this mobile number. Sign in or contact support.')
         return value
     def validate(self, data):
-        if data.pop('confirm_password') != data['password']:
-            raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
-        validate_password(data['password'], m.User(username=data['email'], email=data['email'], first_name=data['owner_name']))
+        validate_password(data['password'], m.User(username=data['mobile'], first_name=data['store_name']))
         return data
 
 class SettingsSerializer(serializers.ModelSerializer):
@@ -116,7 +112,7 @@ class CustomerSerializer(serializers.ModelSerializer):
     refunds = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True, default=Decimal(0))
     order_count = serializers.IntegerField(read_only=True, default=0)
     last_purchase = serializers.DateField(read_only=True, allow_null=True, default=None)
-    class Meta: model = m.Customer; exclude = ['business', 'merged_into']; read_only_fields = ['id', 'created_at']; validators = []
+    class Meta: model = m.Customer; exclude = ['business', 'merged_into']; read_only_fields = ['id', 'created_at', 'is_active']; validators = []
     validate_mobile = staticmethod(normalize_mobile)
     validate_gstin = staticmethod(gstin)
     def validate_whatsapp(self, value): return normalize_mobile(value) if value else ''

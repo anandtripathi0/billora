@@ -6,32 +6,29 @@ test('complete billing workflow with real authentication, PDFs, QR and manual sh
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
-  const email = `repair-${suffix}@example.com`;
+  const mobile = '9' + String(Math.floor(Math.random()*1e9)).padStart(9,'0');
   const password = 'E2E#SecurePass2026';
   await page.goto('/');
   await expect(page.locator('h1').first()).toBeVisible();
   await page.screenshot({path: testInfo.outputPath('homepage.png'), fullPage:true});
   await page.goto('/dashboard');
   await expect(page).toHaveURL(/\/login$/);
-  await page.getByLabel('Email address').fill(email);
+  await page.getByLabel('Mobile Number').fill(mobile);
   await page.getByLabel('Password',{exact:true}).fill('InvalidPassword');
-  await page.getByRole('button',{name:'Sign in to your workspace'}).click();
-  await expect(page.locator('.auth-form').getByRole('alert')).toContainText('Invalid email or password');
-  await page.getByRole('link',{name:'Get started free'}).click();
-  await page.getByLabel('Your full name').fill('Priya Sharma');
-  await page.getByLabel('Business name',{exact:true}).fill('E2E Cream Store');
-  await page.getByLabel('Mobile number',{exact:true}).fill('9876543210');
-  await page.getByLabel('Email address').fill(email);
+  await page.getByRole('button',{name:'Login'}).click();
+  await expect(page.locator('.auth-form').getByRole('alert')).toContainText('Invalid mobile number or password');
+  await page.getByRole('link',{name:'Create Account'}).click();
+
+  await page.getByLabel('Store Name',{exact:true}).fill('E2E Cream Store');
+
+  await page.getByLabel('Mobile Number').fill(mobile);
   await page.getByLabel('Password',{exact:true}).fill(password);
-  await page.getByLabel('Confirm password').fill('DoesNotMatch123');
-  await page.getByRole('button',{name:'Create free account'}).click();
-  await expect(page.locator('.auth-form').getByRole('alert')).toContainText('Passwords do not match');
-  await page.getByLabel('Confirm password').fill(password);
-  await page.getByRole('button',{name:'Create free account'}).click();
+
+  await page.getByRole('button',{name:'Create Account'}).click();
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole('heading',{name:'Hii, Priya! 👋'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Hii, E2E Cream Store! 👋'})).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('heading',{name:'Hii, Priya! 👋'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Hii, E2E Cream Store! 👋'})).toBeVisible();
   expect((await context.cookies()).find(c=>c.name==='sessionid')?.httpOnly).toBe(true);
   expect(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--bg').trim().toUpperCase())).toBe('#FAF7F0');
   await page.goto('/settings');
@@ -140,20 +137,18 @@ test('complete billing workflow with real authentication, PDFs, QR and manual sh
   await page.getByLabel('Include archived').check();
   await expect(page.getByRole('row').filter({hasText:'E2E Notebook'})).toContainText('Inactive');
   await page.goto('/dashboard');
-  await expect(page.getByRole('heading',{name:'Hii, Priya! 👋'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Hii, E2E Cream Store! 👋'})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
   await expect(page.locator('.recharts-surface').first()).toBeVisible();
   await page.screenshot({path:testInfo.outputPath('dashboard.png'),fullPage:true});
   if(testInfo.project.name==='mobile') await page.getByRole('button',{name:'Open menu'}).click();
   await page.getByRole('button',{name:'Sign out',exact:true}).click();
   await expect(page).toHaveURL(/\/login$/);
-  await page.getByLabel('Email address').fill(email);
+  await page.getByLabel('Mobile Number').fill(mobile);
   await page.getByLabel('Password',{exact:true}).fill(password);
-  await page.getByRole('button',{name:'Sign in to your workspace'}).click();
+  await page.getByRole('button',{name:'Login'}).click();
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole('heading',{name:'Hii, Priya! 👋'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Hii, E2E Cream Store! 👋'})).toBeVisible();
   expect(errors).toEqual([]);
 });
-
-
 

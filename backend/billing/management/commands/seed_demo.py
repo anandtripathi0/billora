@@ -2,19 +2,23 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from billing.validation import mobile as normalize_mobile
 from billing.models import User, Business, BusinessSettings, Membership, Category, Product, Customer
 
 class Command(BaseCommand):
     help = 'Create development-only sample records. Never runs in production.'
     def add_arguments(self, parser):
+        parser.add_argument('--mobile', required=True, help='Indian mobile for this disposable development account.')
         parser.add_argument('--email', default='owner@billora.local')
         parser.add_argument('--password', required=True, help='Development-only account password.')
     @transaction.atomic
     def handle(self, *args, **options):
         if not settings.DEBUG: raise CommandError('Sample data is permitted only when DEBUG=true.')
         email = options['email'].lower()
+        mobile = normalize_mobile(options['mobile'])
+        if User.objects.filter(login_mobile=mobile).exists(): raise CommandError('This login mobile already exists; nothing changed.')
         if User.objects.filter(email=email).exists(): raise CommandError('This account already exists; existing records were not changed.')
-        user = User.objects.create_user(username=email, email=email, password=options['password'], first_name='Aarav', mobile='+919876543210')
+        user = User.objects.create_user(username=email, email=email, password=options['password'], first_name='Aarav', mobile=mobile, login_mobile=mobile)
         business = Business.objects.create(name='The Everyday Store', address='12, Market Road, Pune, Maharashtra 411001', mobile=user.mobile)
         BusinessSettings.objects.create(business=business, upi_id='example@upi', upi_payee_name=business.name)
         Membership.objects.create(user=user, business=business)

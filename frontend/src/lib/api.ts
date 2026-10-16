@@ -55,4 +55,4 @@ export async function api<T = Record<string, unknown>>(path: string, options: Re
 export const send = <T = Record<string, unknown>>(path: string, data: unknown, method = 'POST') => api<T>(path, {method, body: JSON.stringify(data)});
 export type Page<T> = {count: number; next: string | boolean | null; previous: string | boolean | null; results: T[]};
 export type RecordData = Record<string, any>;
-export type Session = {user: {id: number; first_name: string; email: string; mobile: string; is_superuser: boolean}; business: RecordData | null; role: string; billing_enabled: boolean};
+export type Session = {user: {id: number; first_name: string; email: string | null; mobile: string; login_mobile: string | null; must_change_password: boolean; is_superuser: boolean}; business: RecordData | null; role: string; billing_enabled: boolean};

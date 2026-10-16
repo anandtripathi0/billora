@@ -21,11 +21,11 @@ ReportLab generates PDFs in memory from saved invoice snapshots at creation and 
    - API `FRONTEND_URL` and `CSRF_TRUSTED_ORIGINS`: the frontend's HTTPS origin.
    - Web `BACKEND_URL`: the backend's HTTPS origin.
 4. Keep backend `DEBUG=false`, `DB_SSL_REQUIRE=true`, `SECURE_SSL_REDIRECT=true`, and `BILLING_ENABLED=false`.
-5. Deploy both services. The backend applies migrations, collects admin static files and starts Gunicorn. The frontend builds a Next.js standalone server. Its runtime proxy keeps browser requests and session cookies on the frontend origin.
+5. Deploy both services. The backend collects admin static files during the image build, then applies migrations and starts Gunicorn at runtime. The frontend builds a Next.js standalone server. Its runtime proxy keeps browser requests and session cookies on the frontend origin.
 6. Check `/api/health/` on the backend and `/health` on the frontend. Backend health includes a PostgreSQL query.
-7. Create a superuser through an available trusted Render shell, or run `python manage.py createsuperuser` locally with the production backend environment configured securely. Avoid putting passwords into command arguments or committing them. Sign in at the frontend with the superuser's email.
+7. Run `python manage.py createsuperuser` interactively in a trusted local terminal with the production backend environment configured securely. Free Render services do not offer shell access. Keep passwords out of command arguments and Git. Sign in with its username at the **backend** `/admin/`. Link verified login mobiles using **Users → Verify mobile / reset password**. Existing email accounts keep their hashes; they need a verified mobile mapping before new frontend logins.
 8. Configure a business, add a product and customer, create an invoice, download its PDF, test the UPI amount, record a partial payment, and verify the QR changes. Prepare and manually send a WhatsApp message, then revoke the link and verify access fails.
-9. Test password-reset email with a real mailbox. Render's free web services block outbound SMTP ports **25, 465, and 587**. Set `EMAIL_PORT` to a provider-supported permitted alternative such as 2525 with STARTTLS, or move the API to a plan that permits your provider's port. Do not use the generic local default of 587 on Render free. [Render's documented restrictions](https://render.com/docs/free#other-limitations).
+9. Test the restricted administrator-assisted reset and required password change, including old-session invalidation. No SMTP, OTP or recovery-code provider is used. See [account migration and recovery](MOBILE_AUTH_DELETION.md).
 
 Pricing and free service availability can change. Review your Render and Neon dashboards before selecting plans. The two web services share Render's workspace free-instance-hour allowance; the documented 750 hours are not a separate allowance for each service. Free services also sleep when idle. This configuration does not guarantee continuous free uptime. [Render free usage rules](https://render.com/docs/free#monthly-usage-limits).
 
@@ -42,7 +42,7 @@ Pricing and free service availability can change. Review your Render and Neon da
 - [ ] GST/supply/rounding configuration reviewed for the business's actual invoicing requirements.
 - [ ] Partial payment updates PDF and UPI amount; scanning a QR never changes payment state.
 - [ ] Expired/revoked sharing tokens fail; no customer details leak into logs or public lists.
-- [ ] Real SMTP reset flow tested; credentials remain server-side.
+- [ ] Verified administrator recovery tested; old sessions revoked and the user must choose a personal password.
 - [ ] PostgreSQL concurrency tests and realistic load tests run against target-like infrastructure.
 - [ ] Logging, database limits, application errors and availability monitored.
 - [ ] Automatic messaging and payment collection remain disabled until their integrations are implemented and reviewed.
@@ -74,7 +74,7 @@ Backend flags: `DEBUG=false`, `DB_SSL_REQUIRE=true`, `SECURE_SSL_REDIRECT=true`,
 
 Frontend required: `BACKEND_URL=https://<api-service>.onrender.com` with no `/api` suffix. Optional `NEXT_TELEMETRY_DISABLED=1`.
 
-SMTP variables are intentionally omitted from the Blueprint setup prompts. For real password-reset email only, add `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS=true` and a verified `DEFAULT_FROM_EMAIL`. These do not block registration, login, invoices, PDF or manual sharing. Do not enter WhatsApp or payment-gateway credentials; those integrations are not used.
+No new environment variables are required for mobile authentication or deletion. SMTP settings are no longer used by account recovery. No support email or phone was provided; Contact Admin displays local instructions. Do not enter WhatsApp or payment-gateway credentials; those integrations are not used.
 
 The browser uses the frontend's same-origin `/api` proxy. Django's HTTP-only session cookie and CSRF cookie are Secure and SameSite=Lax in production; cookies do not need cross-site SameSite=None. Keep the actual frontend HTTPS origin trusted. The proxy lets Render derive HTTPS from the backend connection, avoiding internal HTTP scheme overrides and redirect loops.
 

@@ -5,10 +5,10 @@ import { resolve } from 'node:path';
 test('mobile-first sale, collection, thermal widths, paired mock printing and cancellation',async({page,request},testInfo)=>{
   test.setTimeout(600000);const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('/register');
-  await page.getByLabel('Your full name').fill('Retail Test');await page.getByLabel('Business name',{exact:true}).fill('Retail test store');
-  await page.getByLabel('Mobile number',{exact:true}).fill('9876543210');await page.getByLabel('Email address').fill(`retail-${Date.now()}-${testInfo.project.name}@example.com`);
-  await page.getByLabel('Password',{exact:true}).fill('Retail#Secure2026');await page.getByLabel('Confirm password').fill('Retail#Secure2026');
-  await page.getByRole('button',{name:'Create free account'}).click();await expect(page).toHaveURL(/\/dashboard$/);
+  await page.getByLabel('Store Name',{exact:true}).fill('Retail test store');
+  await page.getByLabel('Mobile Number',{exact:true}).fill('9'+String(Math.floor(Math.random()*1e9)).padStart(9,'0'));
+  await page.getByLabel('Password',{exact:true}).fill('Retail#Secure2026');
+  await page.getByRole('button',{name:'Create Account'}).click();await expect(page).toHaveURL(/\/dashboard$/);
   async function post(path:string,data:unknown,method='POST'){
     const csrf=(await (await page.request.get('/api/auth/csrf/')).json()).csrfToken;
     const r=await page.request.fetch('/api/'+path,{method,data,headers:{'X-CSRFToken':csrf,'Origin':new URL(page.url()).origin}});

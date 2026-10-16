@@ -84,7 +84,7 @@ Keep the two Docker web services in `render.yaml`, connected to the existing Neo
 4. Deploy backend first; its existing Docker entrypoint runs migrations and collectstatic. Deploy/rebuild frontend next. Test login, a synthetic invoice, PDF and both receipt widths.
 5. Pair the printer PC using the production **frontend** URL. Keep the agent running during billing. Free Render instances may sleep; allow a cold start before beginning a queue session.
 
-SMTP variables are optional for actual password-reset email delivery; see [DEPLOYMENT.md](DEPLOYMENT.md). Local console email needs no SMTP. No new ENV variables are required for this retail/printing feature.
+Account recovery is administrator-assisted; no SMTP or OTP variables are required. No new ENV variables are required for this retail/printing feature.
 
 ## References
 

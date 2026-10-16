@@ -10,20 +10,20 @@ test('authentication, session navigation and warm timings', async ({page}, info)
   const cdp = await page.context().newCDPSession(page); await cdp.send('Performance.enable');
   page.on('request',r=>{const p=new URL(r.url()).pathname;if(p.startsWith('/api/'))requests.push(p);});
   async function timed(name:string, action:()=>Promise<void>) {const start=Date.now();await action();(samples[name]??=[]).push(Date.now()-start);}
-  const email=`browser-perf-${Date.now()}-${info.project.name}@example.com`;const password='Browser-Performance#2026';
+  const mobile='9'+String(Math.floor(Math.random()*1e9)).padStart(9,'0');const password='Browser-Performance#2026';
   await timed('homepage',async()=>{await page.goto('/');await expect(page.getByRole('link',{name:/get started free/i}).first()).toBeVisible();});
   await page.goto('/register');
-  await page.getByLabel('Your full name',{exact:true}).fill('Performance Test');
-  await page.getByLabel('Business name',{exact:true}).fill('Isolated performance test');
-  await page.getByLabel('Mobile number',{exact:true}).fill('9876543212');
-  await page.getByLabel('Email address',{exact:true}).fill(email);
+
+  await page.getByLabel('Store Name',{exact:true}).fill('Isolated performance test');
+
+  await page.getByLabel('Mobile Number',{exact:true}).fill(mobile);
   await page.getByLabel('Password',{exact:true}).fill(password);
-  await page.getByLabel('Confirm password',{exact:true}).fill(password);
-  await timed('registration_to_dashboard',async()=>{await page.getByRole('button',{name:'Create free account',exact:true}).click();await expect(page.getByText("Today's sales",{exact:true})).toBeVisible({timeout:120000});});
+
+  await timed('registration_to_dashboard',async()=>{await page.getByRole('button',{name:'Create Account',exact:true}).click();await expect(page.getByText("Today's sales",{exact:true})).toBeVisible({timeout:120000});});
   for(let i=0;i<3;i++) {
     await page.getByRole('button',{name:'Sign out',exact:true}).click();await expect(page).toHaveURL(/\/login/,{timeout:90000});
-    await page.getByLabel('Email address',{exact:true}).fill(email);await page.getByLabel('Password',{exact:true}).fill(password);
-    await timed('login_to_dashboard',async()=>{await page.getByRole('button',{name:'Sign in to your workspace',exact:true}).click();await expect(page.getByText("Today's sales",{exact:true})).toBeVisible({timeout:120000});});
+    await page.getByLabel('Mobile Number',{exact:true}).fill(mobile);await page.getByLabel('Password',{exact:true}).fill(password);
+    await timed('login_to_dashboard',async()=>{await page.getByRole('button',{name:'Login',exact:true}).click();await expect(page.getByText("Today's sales",{exact:true})).toBeVisible({timeout:120000});});
     const before=requests.filter(p=>p==='/api/auth/me/').length;
     await timed('products_navigation',async()=>{await page.locator('nav').getByRole('link',{name:'Products',exact:true}).click();await expect(page.getByLabel('Search products',{exact:true})).toBeVisible();});
     await timed('dashboard_navigation',async()=>{await page.locator('nav').getByRole('link',{name:'Overview',exact:true}).click();await expect(page.getByText("Today's sales",{exact:true})).toBeVisible();});

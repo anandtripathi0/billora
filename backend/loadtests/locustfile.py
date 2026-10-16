@@ -13,7 +13,7 @@ class BillingUser(HttpUser):
         password = os.environ['LOAD_TEST_PASSWORD']
         self.client.get('/api/auth/csrf/')
         self.client.headers['X-CSRFToken'] = self.client.cookies.get('csrftoken')
-        response = self.client.post('/api/auth/login/',json={'email':f'load{user}@billora.local','password':password})
+        response = self.client.post('/api/auth/login/',json={'mobile':f'+919{user:09d}','password':password})
         response.raise_for_status()
         self.client.headers['X-CSRFToken'] = self.client.cookies.get('csrftoken')
         self.product = self.client.get('/api/products/').json()['results'][0]['id']

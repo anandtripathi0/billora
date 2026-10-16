@@ -11,9 +11,11 @@ class TenantBackend(ModelBackend):
     def accounts(self):
         return get_user_model().objects.select_related('membership__business__settings')
 
-    def authenticate(self, request, username=None, password=None, **kwargs):
-        if username is None or password is None: return None
-        user = self.accounts().filter(email__iexact=username).first() if '@' in username else self.accounts().filter(username=username).first()
+    def authenticate(self, request, username=None, password=None, mobile=None, **kwargs):
+        if password is None or (username is None and mobile is None): return None
+        # Public login supplies only a normalized mobile. Username remains for
+        # Django's restricted administration interface and management tools.
+        user = self.accounts().filter(login_mobile=mobile).first() if mobile is not None else self.accounts().filter(username=username).first()
         with span('password_ms'):
             if user is None:
                 # Preserve Django's password-work defense against user enumeration.
@@ -30,6 +32,13 @@ class TenantBackend(ModelBackend):
         return user if self.user_can_authenticate(user) else None
 
 class CSRFSessionAuthentication(SessionAuthentication):
+    def authenticate(self, request):
+        result = super().authenticate(request)
+        if result and result[0].must_change_password and request.path not in {
+            '/api/profile/', '/api/auth/me/', '/api/auth/logout/', '/api/auth/csrf/'
+        }:
+            raise PermissionDenied('Set a new password before continuing.', code='password_change_required')
+        return result
     def enforce_csrf(self, request):
         try: return super().enforce_csrf(request)
         except PermissionDenied:

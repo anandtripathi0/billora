@@ -11,8 +11,13 @@ ZERO = Decimal('0.00')
 
 class User(AbstractUser):
     username = models.CharField(max_length=254, unique=True)
-    email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True, null=True, blank=True)
     mobile = models.CharField(max_length=16, blank=True)
+    # Legacy contact numbers are preserved until an administrator verifies them.
+    login_mobile = models.CharField(max_length=13, unique=True, null=True, blank=True)
+    legacy_mobile_candidate = models.CharField(max_length=13, null=True, blank=True, db_index=True, editable=False)
+    must_change_password = models.BooleanField(default=False)
+    password_reset_at = models.DateTimeField(null=True, blank=True)
     class Meta:
         verbose_name = 'user'
         verbose_name_plural = 'users'
@@ -106,9 +111,10 @@ class Customer(TenantModel):
     gstin = models.CharField(max_length=15, blank=True)
     state_code = models.CharField(max_length=2, blank=True)
     consent_whatsapp = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
     merged_into = models.ForeignKey('self', null=True, blank=True, on_delete=models.PROTECT, editable=False)
     class Meta:
-        constraints = [models.UniqueConstraint(fields=['business', 'mobile'], condition=Q(merged_into__isnull=True), name='unique_active_customer_mobile')]
+        constraints = [models.UniqueConstraint(fields=['business', 'mobile'], condition=Q(merged_into__isnull=True, is_active=True), name='unique_active_customer_mobile')]
         indexes = [models.Index(fields=['business', 'name']), models.Index(fields=['business', 'mobile'])]
     def __str__(self): return self.name
 
@@ -238,6 +244,7 @@ class AuditLog(models.Model):
     actor = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
     action = models.CharField(max_length=100)
     object_id = models.CharField(max_length=64, blank=True)
+    verification_reference = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     class Meta: ordering = ['-created_at']
 

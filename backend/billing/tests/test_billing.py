@@ -15,7 +15,8 @@ from billing.pdf import qr_data, safe_fetcher
 from billing.serializers import InvoiceInput
 
 def fixture(email='owner@example.com', name='Priya'):
-    user = m.User.objects.create_user(username=email, email=email, password='Test-Password-2026!', first_name=name, mobile='+919876543210')
+    login_mobile = '+919' + str(int(hashlib.sha256(email.encode()).hexdigest()[:12],16) % 1000000000).zfill(9)
+    user = m.User.objects.create_user(login_mobile=login_mobile, username=email, email=email, password='Test-Password-2026!', first_name=name, mobile='+919876543210')
     business = m.Business.objects.create(name='Test Store', gstin='27ABCDE1234F1Z5', state_code='27', mobile='+919876543210')
     m.BusinessSettings.objects.create(business=business, upi_id='store@upi', upi_payee_name='Test Store & More')
     m.Membership.objects.create(user=user, business=business)
@@ -171,27 +172,28 @@ class ApiTests(TestCase):
 class AuthTests(TestCase):
     def setUp(self): self.user,self.business,self.product,self.customer=fixture();self.client=APIClient(enforce_csrf_checks=True)
     def csrf(self): return self.client.get('/api/auth/csrf/').data['csrfToken']
-    def test_login_rejects_missing_csrf(self): self.assertEqual(self.client.post('/api/auth/login/',{'email':self.user.email,'password':'Test-Password-2026!'},format='json').status_code,403)
+    def test_login_rejects_missing_csrf(self): self.assertEqual(self.client.post('/api/auth/login/',{'mobile':self.user.login_mobile,'password':'Test-Password-2026!'},format='json').status_code,403)
     def test_login_logout_session(self):
-        response=self.client.post('/api/auth/login/',{'email':self.user.email,'password':'Test-Password-2026!'},format='json',HTTP_X_CSRFTOKEN=self.csrf())
+        response=self.client.post('/api/auth/login/',{'mobile':self.user.login_mobile,'password':'Test-Password-2026!'},format='json',HTTP_X_CSRFTOKEN=self.csrf())
         self.assertEqual(response.status_code,200);self.assertTrue(response.cookies['sessionid']['httponly']);self.assertEqual(self.client.get('/api/auth/me/').status_code,200)
         self.assertEqual(self.client.post('/api/auth/logout/',{},format='json',HTTP_X_CSRFTOKEN=self.csrf()).status_code,200)
         self.assertEqual(self.client.get('/api/auth/me/').status_code,401)
     def test_login_rate_limit(self):
         token=self.csrf()
-        for _ in range(10): self.client.post('/api/auth/login/',{'email':self.user.email,'password':'wrong'},format='json',HTTP_X_CSRFTOKEN=token)
-        self.assertEqual(self.client.post('/api/auth/login/',{'email':self.user.email,'password':'wrong'},format='json',HTTP_X_CSRFTOKEN=token).status_code,429)
+        for _ in range(10): self.client.post('/api/auth/login/',{'mobile':self.user.login_mobile,'password':'wrong'},format='json',HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(self.client.post('/api/auth/login/',{'mobile':self.user.login_mobile,'password':'wrong'},format='json',HTTP_X_CSRFTOKEN=token).status_code,429)
     def test_register_creates_private_business(self):
-        response=self.client.post('/api/auth/register/',{'email':'new@example.com','password':'Unique#Pass2026','confirm_password':'Unique#Pass2026','owner_name':'Aman','business_name':'Aman Store','mobile':'9876543210'},format='json',HTTP_X_CSRFTOKEN=self.csrf())
-        self.assertEqual(response.status_code,201);self.assertEqual(response.data['user']['mobile'],'+919876543210');self.assertEqual(response.data['user']['first_name'],'Aman')
-    def test_password_confirmation_must_match(self):
-        response=self.client.post('/api/auth/register/',{'email':'mismatch@example.com','password':'Unique#Pass2026','confirm_password':'Different#Pass2026','owner_name':'Aman','business_name':'Aman Store','mobile':'9876543210'},format='json',HTTP_X_CSRFTOKEN=self.csrf())
+        response=self.client.post('/api/auth/register/',{'store_name':'Aman Store','mobile':'9876543210','password':'Unique#Pass2026'},format='json',HTTP_X_CSRFTOKEN=self.csrf())
+        self.assertEqual(response.status_code,201);self.assertEqual(response.data['user']['login_mobile'],'+919876543210')
+        self.assertEqual(response.data['business']['name'],'Aman Store');self.assertEqual(response.data['role'],'owner')
+    def test_weak_registration_password_is_rejected(self):
+        response=self.client.post('/api/auth/register/',{'store_name':'Aman Store','mobile':'9876543210','password':'password'},format='json',HTTP_X_CSRFTOKEN=self.csrf())
         self.assertEqual(response.status_code,400)
-        self.assertFalse(m.User.objects.filter(email='mismatch@example.com').exists())
-    def test_reset_password_token_single_use(self):
+        self.assertFalse(m.User.objects.filter(login_mobile='+919876543210').exists())
+    def test_public_password_reset_is_removed(self):
         from django.core import mail
-        self.client.post('/api/auth/forgot-password/',{'email':self.user.email},format='json',HTTP_X_CSRFTOKEN=self.csrf())
-        url=mail.outbox[0].body.splitlines()[1];params=parse_qs(urlparse(url).query)
-        body={'uid':params['uid'][0],'token':params['token'][0],'password':'Replacement#2026Secure'}
-        self.assertEqual(self.client.post('/api/auth/reset-password/',body,format='json',HTTP_X_CSRFTOKEN=self.csrf()).status_code,200)
-        self.assertEqual(self.client.post('/api/auth/reset-password/',body,format='json',HTTP_X_CSRFTOKEN=self.csrf()).status_code,400)
+        before=self.user.password
+        for action in ['forgot-password','reset-password']:
+            response=self.client.post(f'/api/auth/{action}/',{'mobile':self.user.login_mobile,'password':'Replacement#2026Secure'},format='json',HTTP_X_CSRFTOKEN=self.csrf())
+            self.assertEqual(response.status_code,410)
+        self.user.refresh_from_db();self.assertEqual(self.user.password,before);self.assertEqual(len(mail.outbox),0)

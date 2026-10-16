@@ -8,7 +8,7 @@ test('owner previews catalog, activates an unpriced SKU, invoices and safely rei
     const r=await page.request.fetch('/api/'+path,{method,data,timeout:60000,headers:{'X-CSRFToken':token,'Origin':'http://localhost:3000'}});
     expect(r.ok(),`${path}: ${await r.text()}`).toBe(true);return r.json();
   }
-  await post('auth/register/',{owner_name:'Catalog Test',business_name:`Catalog test ${testInfo.project.name}`,email:`catalog-${Date.now()}-${testInfo.project.name}@example.com`,mobile:'9876543210',password:'Catalog#Secure2026',confirm_password:'Catalog#Secure2026'});
+  await post('auth/register/',{store_name:`Catalog test ${testInfo.project.name}`,mobile:'9'+String(Math.floor(Math.random()*1e9)).padStart(9,'0'),password:'Catalog#Secure2026'});
   await page.goto('/products');
   await page.getByRole('button',{name:'Import Starter Grocery Catalog',exact:true}).click();
   const modal=page.getByRole('dialog');await expect(modal).toContainText('200',{timeout:60000});

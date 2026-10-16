@@ -1,46 +1,44 @@
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { csrfToken, send, type Session } from '@/lib/api';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, LoaderCircle, ShieldCheck, Sparkles } from 'lucide-react';
+import { api, csrfToken, send, type Session } from '@/lib/api';
+import { ArrowRight, Eye, EyeOff, LoaderCircle, ShieldCheck, Sparkles } from 'lucide-react';
 import { Logo } from './shell';
 import { Button } from './ui/button';
-import { Field } from './common';
+import { Field, Modal } from './common';
 
-const schema = z.object({email: z.email('Enter a valid email address.').optional(), password: z.string().optional(), owner_name: z.string().optional(), business_name: z.string().optional(), mobile: z.string().optional(), confirm_password: z.string().optional()});
-type Values = z.infer<typeof schema>;
-type Mode = 'login' | 'register' | 'forgot-password' | 'reset-password';
+type Mode = 'login' | 'register' | 'forgot-password';
 export function AuthForm({mode}: {mode: Mode}) {
-  const router = useRouter(); const client = useQueryClient(); const [error, setError] = useState(''); const [success, setSuccess] = useState('');
-  const submitting = useRef(false); const [slow, setSlow] = useState(false);
-  const {register, handleSubmit, formState: {errors, isSubmitting}} = useForm<Values>({resolver: zodResolver(schema)});
-  useEffect(() => { void csrfToken().catch(() => {}); router.prefetch('/dashboard'); }, [router]);
-  useEffect(() => { if (!isSubmitting) {setSlow(false); return;} const id = setTimeout(() => setSlow(true), 8000); return () => clearTimeout(id); }, [isSubmitting]);
-  const titles = {login: ['Welcome back.', 'Good to see you. Let’s get back to business.'], register: ['Your next chapter starts here.', 'Create your free workspace. No credit card needed.'], 'forgot-password': ['Forgot your password?', 'We’ll email you a secure link to reset it.'], 'reset-password': ['A fresh start.', 'Choose a strong new password for your account.']};
-  async function submit(values: Values) {
-    if (submitting.current) return;
-    setError(''); setSuccess('');
-    if(mode === 'register' && values.password !== values.confirm_password){setError('Passwords do not match.');return;}
-    submitting.current = true;
+  const router = useRouter(); const client = useQueryClient();
+  const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  const [visible, setVisible] = useState(false); const [support, setSupport] = useState(false);
+  const [slow, setSlow] = useState(false); const submitting = useRef(false);
+  const session = useQuery({queryKey:['session'], queryFn:()=>api<Session>('auth/me/'), retry:false, enabled:mode !== 'forgot-password'});
+  const destination = (data:Session) => data.user.must_change_password ? '/profile' : data.user.is_superuser ? '/super-admin' : '/dashboard';
+  useEffect(() => { if(mode !== 'forgot-password') {void csrfToken().catch(()=>{}); router.prefetch('/dashboard');} }, [mode, router]);
+  useEffect(() => {if(session.data)router.replace(destination(session.data));}, [session.data, router]);
+  useEffect(() => {if(!busy){setSlow(false);return;}const id=setTimeout(()=>setSlow(true),8000);return()=>clearTimeout(id);},[busy]);
+  async function submit(event:React.FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if(submitting.current)return;
+    submitting.current=true;setBusy(true);setError('');
     try {
-      const params = new URLSearchParams(window.location.search);
-      const data = await send<Session & {detail?: string}>(`auth/${mode}/`, {...values, ...(mode === 'reset-password' ? {uid: params.get('uid'), token: params.get('token')} : {})});
-      if (mode === 'forgot-password' || mode === 'reset-password') {setSuccess(data.detail || 'Done.'); return;}
-      client.clear(); client.setQueryData(['session'], data);
-      router.replace(data.user.is_superuser ? '/super-admin' : '/dashboard');
-    } catch(e) {setError((e as Error).message);} finally {submitting.current = false;}
+      const data=await send<Session>(`auth/${mode}/`,Object.fromEntries(new FormData(event.currentTarget)));
+      await client.cancelQueries({queryKey:['session']});client.clear();client.setQueryData(['session'],data);
+      router.replace(destination(data));
+    } catch(e){setError((e as Error).message);} finally{submitting.current=false;setBusy(false);}
   }
-  return <div className="auth-layout"><aside className="auth-story"><Logo/><div className="auth-story-copy"><span className="launch-pill" style={{width: 'max-content'}}><Sparkles size={12}/> Currently free during launch</span><h1>Big ambitions.<br/>Small details.<br/><span>All in balance.</span></h1><p>A beautiful space to manage your invoices, inventory, and the people who keep your business moving.</p><div className="notice-box" style={{marginTop:32}}><ShieldCheck size={20} style={{marginBottom:8}}/><br/>Your business has its own private workspace, protected by secure sessions and access controls.</div></div><small>Built for independent Indian businesses.</small></aside><Link className="auth-top-link" href="/">← Back to home</Link><main className="auth-main"><div className="auth-form"><h1>{titles[mode][0]}</h1><p>{titles[mode][1]}</p>{success ? <div className="notice-box" role="status">{success}<br/><Link className="text-link" href="/login">Back to sign in →</Link></div> : <form onSubmit={handleSubmit(submit)}>
-    {mode === 'register' && <><Field label="Your full name"><input {...register('owner_name')} autoComplete="name" placeholder="e.g. Priya Sharma" required maxLength={100}/></Field><Field label="Business name"><input {...register('business_name')} autoComplete="organization" placeholder="Your business, your identity" required maxLength={160}/></Field><Field label="Mobile number"><input {...register('mobile')} autoComplete="tel" placeholder="98765 43210" type="tel" required maxLength={20}/></Field></>}
-    {mode !== 'reset-password' && <Field label="Email address"><input {...register('email')} type="email" autoComplete="email" placeholder="you@yourbusiness.com" required/>{errors.email && <span className="form-error">{errors.email.message}</span>}</Field>}
-    {mode !== 'forgot-password' && <Field label={mode === 'reset-password' ? 'New password' : 'Password'} hint={mode === 'register' || mode === 'reset-password' ? 'Use at least 10 characters. Avoid common passwords.' : undefined}><input {...register('password')} type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required minLength={mode === 'login' ? 1 : 10} maxLength={128} placeholder="Enter your password"/></Field>}
-    {mode === 'register' && <Field label="Confirm password"><input {...register('confirm_password')} type="password" autoComplete="new-password" required minLength={10} maxLength={128} placeholder="Re-enter your password"/></Field>}
-    {mode === 'login' && <Link href="/forgot-password" className="text-link password-link">Forgot password?</Link>}{error && <p className="form-error" role="alert">{error}</p>}
-    <Button disabled={isSubmitting} aria-busy={isSubmitting} type="submit">{isSubmitting ? <LoaderCircle size={17} className="spin"/> : null}{isSubmitting ? (mode === 'login' ? 'Signing in…' : mode === 'register' ? 'Creating account…' : 'Please wait…') : mode === 'login' ? 'Sign in to your workspace' : mode === 'register' ? 'Create free account' : mode === 'forgot-password' ? 'Send reset link' : 'Update password'}<ArrowRight size={17}/></Button>{slow && <p role="status">The server is taking longer than usual. Please keep this page open; your request is still waiting for a response.</p>}</form>}
-    {['login', 'register'].includes(mode) && <p className="auth-bottom">{mode === 'login' ? 'New to Billora?' : 'Already have an account?'} <Link href={mode === 'login' ? '/register' : '/login'}>{mode === 'login' ? 'Get started free' : 'Sign in'}</Link></p>}</div></main></div>;
+  const title=mode==='register'?'Your store starts here.':mode==='login'?'Welcome back.':'Forgot your password?';
+  return <div className="auth-layout"><aside className="auth-story"><Logo/><div className="auth-story-copy"><span className="launch-pill" style={{width:'max-content'}}><Sparkles size={12}/>Currently free during launch</span><h1>Big ambitions.<br/>Small details.<br/><span>All in balance.</span></h1><p>A beautiful space to manage your invoices, inventory, and the people who keep your business moving.</p><div className="notice-box" style={{marginTop:32}}><ShieldCheck size={20}/><br/>Your business has its own private workspace, protected by secure sessions and access controls.</div></div><small>Built for independent Indian businesses.</small></aside><Link className="auth-top-link" href="/">← Back to home</Link><main className="auth-main"><div className="auth-form"><h1>{title}</h1><p>{mode==='register'?'Three details. One workspace for your business.':mode==='login'?'Sign in with your registered mobile number.':'Forgot your password? Contact Billora Support/Admin to reset your password.'}</p>
+    {mode==='forgot-password'?<><Button onClick={()=>setSupport(true)}>Contact Admin / Support</Button><p className="auth-bottom"><Link href="/login">Back to sign in</Link></p></>:<form onSubmit={submit}>
+      {mode==='register'&&<Field label="Store Name"><input name="store_name" autoComplete="organization" required maxLength={160} placeholder="e.g. Sharma Kirana Store"/></Field>}
+      <Field label="Mobile Number"><input name="mobile" type="tel" inputMode="tel" autoComplete="username" required maxLength={20} placeholder="98765 43210"/></Field>
+      <div className="password-field"><Field label="Password" hint={mode==='register'?'Use at least 10 characters. Avoid common passwords.':undefined}><input name="password" type={visible?'text':'password'} autoComplete={mode==='login'?'current-password':'new-password'} required minLength={mode==='login'?1:10} maxLength={128} placeholder="Enter your password"/><button className="password-toggle" type="button" aria-label={visible?'Hide password':'Show password'} aria-pressed={visible} onClick={()=>setVisible(!visible)}>{visible?<EyeOff size={18}/>:<Eye size={18}/>}</button></Field></div>
+      {mode==='login'&&<Link href="/forgot-password" className="text-link password-link">Forgot password?</Link>}{error&&<p className="form-error" role="alert">{error}</p>}
+      <Button type="submit" disabled={busy} aria-busy={busy}>{busy&&<LoaderCircle size={17} className="spin"/>}{busy?(mode==='login'?'Signing in…':'Creating account…'):(mode==='login'?'Login':'Create Account')}<ArrowRight size={17}/></Button>
+      {slow&&<p role="status">The server is taking longer than usual. Please keep this page open; your request is still waiting for a response.</p>}
+    </form>}
+    {mode!=='forgot-password'&&<p className="auth-bottom">{mode==='login'?'New to Billora?':'Already have an account?'} <Link href={mode==='login'?'/register':'/login'}>{mode==='login'?'Create Account':'Login'}</Link></p>}
+    </div></main>{support&&<Modal title="Contact your administrator" onClose={()=>setSupport(false)}><p>Contact the administrator who manages your Billora installation directly. They must independently verify that you own the account or store before resetting access.</p><p className="muted" style={{marginTop:16}}>No support email or phone number has been provided for this installation. If ownership cannot be verified, the administrator must refuse the reset.</p><div className="form-actions"><Button onClick={()=>setSupport(false)}>Close</Button></div></Modal>}</div>;
 }

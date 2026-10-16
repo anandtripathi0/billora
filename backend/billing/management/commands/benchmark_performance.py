@@ -1,6 +1,7 @@
 """Repeatable ORM/request benchmarks in an explicitly isolated database."""
 import json
 import math
+import secrets
 import re
 import statistics
 import time
@@ -29,7 +30,7 @@ class Command(BaseCommand):
         hashed = make_password(password)
         business = Business.objects.create(name='Synthetic performance fixture')
         BusinessSettings.objects.create(business=business)
-        users = [User.objects.create(username=f'perf-{tag}-{i}@example.com', email=f'perf-{tag}-{i}@example.com', password=hashed) for i in range(5)]
+        users = [User.objects.create(username=f'perf-{tag}-{i}@example.com', email=f'perf-{tag}-{i}@example.com', password=hashed,login_mobile='+919'+str(secrets.randbelow(10**9)).zfill(9)) for i in range(5)]
         for user in users: Membership.objects.create(user=user, business=business, role='owner')
         customer = Customer.objects.create(business=business, name='Synthetic buyer', mobile='+919876543210')
         products = Product.objects.bulk_create([Product(business=business, name=f'Benchmark rice {i}', sku=f'PERF-{i}', selling_price=Decimal('10.00'), purchase_price=Decimal('5.00'), gst_rate=0, stock=10000) for i in range(200)])
@@ -54,7 +55,7 @@ class Command(BaseCommand):
         for i in range(n):
             token=measure('csrf','get','/api/auth/csrf/').json()['csrfToken']
             user=users[i%5]
-            measure('login','post','/api/auth/login/',{'email':user.email,'password':password},token)
+            measure('login','post','/api/auth/login/',{'mobile':user.login_mobile,'password':password},token)
             token=client.cookies['csrftoken'].value
             measure('me','get','/api/auth/me/')
             measure('dashboard','get','/api/dashboard/')
@@ -64,7 +65,7 @@ class Command(BaseCommand):
             measure('logout','post','/api/auth/logout/',{},token)
         for i in range(3):
             token=measure('csrf','get','/api/auth/csrf/').json()['csrfToken']
-            measure('register','post','/api/auth/register/',{'email':f'reg-{tag}-{i}@example.com','owner_name':'Synthetic owner','business_name':'Synthetic store','mobile':'9876543211','password':password,'confirm_password':password},token)
+            measure('register','post','/api/auth/register/',{'store_name':'Synthetic store','mobile':'9'+str(secrets.randbelow(10**9)).zfill(9),'password':password},token)
         hashes=[]
         for _ in range(5):
             start=time.perf_counter(); check_password(password,hashed); hashes.append((time.perf_counter()-start)*1000)
@@ -73,10 +74,10 @@ class Command(BaseCommand):
             values=sorted(r['ms'] for r in rows)
             summary[label]={'n':len(rows),'p50_ms':round(statistics.median(values),2),'p95_ms':values[math.ceil(.95*len(values))-1] if len(values)>=20 else None,'queries_median':statistics.median(r['queries'] for r in rows),'db_p50_ms':round(statistics.median(r['db_ms'] for r in rows),2)}
         plans={
-            'email_lookup':User.objects.filter(email__iexact=users[0].email).explain(format='json'),
+            'mobile_lookup':User.objects.filter(login_mobile=users[0].login_mobile).explain(format='json'),
             'product_search':Product.objects.filter(business=business,is_active=True,name__icontains='rice').order_by('-pk')[:25].explain(format='json'),
             'invoice_history':Invoice.objects.filter(business=business,cancelled_at__isnull=True).order_by('-date','-created_at')[:25].explain(format='json'),
-            'customer_lookup':Customer.objects.filter(business=business,mobile=customer.mobile,merged_into__isnull=True).explain(format='json')}
+            'customer_lookup':Customer.objects.filter(business=business,mobile=customer.mobile,merged_into__isnull=True,is_active=True).explain(format='json')}
         # Query plans can contain synthetic IDs/values only; no real tenant is queried.
         report={'environment':'Local Django test client, real Neon PostgreSQL, real Argon2; isolated synthetic data; excludes HTTP proxy/browser','fixture':{'products':200,'invoices':1000},'summary':summary,'samples':results,'password_verify_ms':hashes,'plans':{k:json.loads(v) for k,v in plans.items()}}
         Path(options['report']).write_text(json.dumps(report,indent=2),encoding='utf-8')
