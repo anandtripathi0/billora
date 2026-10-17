@@ -15,13 +15,72 @@ export function AuthForm({mode}: {mode: Mode}) {
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const [visible, setVisible] = useState(false); const [support, setSupport] = useState(false);
   const [slow, setSlow] = useState(false); const submitting = useRef(false);
-  const session = useQuery({queryKey:['session'], queryFn:()=>api<Session>('auth/me/'), retry:false, enabled:mode !== 'forgot-password'});
+  
+const [serverStatus, setServerStatus] = useState<
+  'checking' | 'ready' | 'failed'
+>('checking');
+
+const [retryConnection, setRetryConnection] = useState(0);
+
+useEffect(() => {
+  let cancelled = false;
+  const controller = new AbortController();
+
+  async function checkBackend() {
+    setServerStatus('checking');
+
+    for (let attempt = 0; attempt < 6; attempt++) {
+      if (cancelled) return;
+
+      try {
+        const response = await fetch('/api/health/', {
+          cache: 'no-store',
+          signal: AbortSignal.any([
+            controller.signal,
+            AbortSignal.timeout(25000),
+          ]),
+        });
+
+        if (response.ok) {
+          if (!cancelled) setServerStatus('ready');
+          return;
+        }
+      } catch {
+        // The backend may still be waking up.
+      }
+
+      if (attempt < 5 && !cancelled) {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 5000);
+        });
+      }
+    }
+
+    if (!cancelled) setServerStatus('failed');
+  }
+
+  void checkBackend();
+
+  return () => {
+    cancelled = true;
+    controller.abort();
+  };
+}, [retryConnection]);
+
+  const session = useQuery({queryKey:['session'], queryFn:()=>api<Session>('auth/me/'), retry:false, enabled: mode !== 'forgot-password' && serverStatus === 'ready'});
   const destination = (data:Session) => data.user.must_change_password ? '/profile' : data.user.is_superuser ? '/super-admin' : '/dashboard';
-  useEffect(() => { if(mode !== 'forgot-password') {void csrfToken().catch(()=>{}); router.prefetch('/dashboard');} }, [mode, router]);
+  useEffect(() => { if(mode !== 'forgot-password' && serverStatus === 'ready') {void csrfToken().catch(()=>{}); router.prefetch('/dashboard');} }, [mode, router,serverStatus]);
   useEffect(() => {if(session.data)router.replace(destination(session.data));}, [session.data, router]);
   useEffect(() => {if(!busy){setSlow(false);return;}const id=setTimeout(()=>setSlow(true),8000);return()=>clearTimeout(id);},[busy]);
   async function submit(event:React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if(submitting.current)return;
+    event.preventDefault();
+
+if (serverStatus !== 'ready') {
+  setError('Server is connecting. Please wait.');
+  return;
+}
+
+if (submitting.current) return;
     submitting.current=true;setBusy(true);setError('');
     try {
       const data=await send<Session>(`auth/${mode}/`,Object.fromEntries(new FormData(event.currentTarget)));
@@ -36,7 +95,34 @@ export function AuthForm({mode}: {mode: Mode}) {
       <Field label="Mobile Number"><input name="mobile" type="tel" inputMode="tel" autoComplete="username" required maxLength={20} placeholder="98765 43210"/></Field>
       <div className="password-field"><Field label="Password" hint={mode==='register'?'Use at least 10 characters. Avoid common passwords.':undefined}><input name="password" type={visible?'text':'password'} autoComplete={mode==='login'?'current-password':'new-password'} required minLength={mode==='login'?1:10} maxLength={128} placeholder="Enter your password"/><button className="password-toggle" type="button" aria-label={visible?'Hide password':'Show password'} aria-pressed={visible} onClick={()=>setVisible(!visible)}>{visible?<EyeOff size={18}/>:<Eye size={18}/>}</button></Field></div>
       {mode==='login'&&<Link href="/forgot-password" className="text-link password-link">Forgot password?</Link>}{error&&<p className="form-error" role="alert">{error}</p>}
-      <Button type="submit" disabled={busy} aria-busy={busy}>{busy&&<LoaderCircle size={17} className="spin"/>}{busy?(mode==='login'?'Signing in…':'Creating account…'):(mode==='login'?'Login':'Create Account')}<ArrowRight size={17}/></Button>
+      
+{serverStatus === 'checking' && (
+  <p role="status" style={{ color: '#79634D' }}>
+    <LoaderCircle size={16} className="spin" />
+    {' '}Connecting to Billora server…
+    Please wait.
+  </p>
+)}
+
+{serverStatus === 'ready' && (
+  <p role="status" style={{ color: '#3F8A69' }}>
+    ✓ Server connected
+  </p>
+)}
+
+{serverStatus === 'failed' && (
+  <div role="alert">
+    <p>Server connection failed. Please try again.</p>
+    <button
+      type="button"
+      onClick={() => setRetryConnection(n => n + 1)}
+    >
+      Retry Connection
+    </button>
+  </div>
+)}
+
+      <Button type="submit" disabled={busy || serverStatus !== 'ready'} aria-busy={busy}>{busy&&<LoaderCircle size={17} className="spin"/>}{busy?(mode==='login'?'Signing in…':'Creating account…'):(mode==='login'?'Login':'Create Account')}<ArrowRight size={17}/></Button>
       {slow&&<p role="status">The server is taking longer than usual. Please keep this page open; your request is still waiting for a response.</p>}
     </form>}
     {mode!=='forgot-password'&&<p className="auth-bottom">{mode==='login'?'New to Billora?':'Already have an account?'} <Link href={mode==='login'?'/register':'/login'}>{mode==='login'?'Create Account':'Login'}</Link></p>}
