@@ -186,7 +186,11 @@ class AndroidConcurrentSyncTests(TransactionTestCase):
         self.user,self.business,self.product,self.customer=fixture()
         client=APIClient()
         login=client.post('/api/mobile/login/',{'mobile':self.user.login_mobile,'password':'Test-Password-2026!'},format='json')
-        self.assertEqual(login.status_code,200)
+        self.assertEqual(
+            login.status_code,
+            200,
+            getattr(login, "data", login.content.decode("utf-8", errors="replace")),
+        )
         self.token=login.data['token'];client.credentials(HTTP_AUTHORIZATION='Bearer '+self.token)
         self.assertEqual(client.get('/api/mobile/pull/').status_code,200)
         self.pid=identity(self.business,'product',self.product.pk);self.cid=identity(self.business,'customer',self.customer.pk)
