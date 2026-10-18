@@ -3,10 +3,10 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest import skipUnless
 from datetime import timedelta
 from decimal import Decimal
-from django.test import TestCase, TransactionTestCase
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.db import connection, close_old_connections
 from django.utils import timezone
-from rest_framework.test import APIClient
+from .https_client import HTTPSAPIClient
 from billing import models as m
 from billing.mobile_sync import identity, fingerprint, wire
 from billing.services import create_invoice
@@ -16,7 +16,7 @@ from .test_billing import fixture, payload
 class AndroidSyncTests(TestCase):
     def setUp(self):
         self.user, self.business, self.product, self.customer = fixture()
-        self.client = APIClient(enforce_csrf_checks=True)
+        self.client = HTTPSAPIClient(enforce_csrf_checks=True)
         self.login()
         self.page = self.client.get('/api/mobile/pull/').data
         self.pid = identity(self.business, 'product', self.product.pk)
@@ -44,11 +44,20 @@ class AndroidSyncTests(TestCase):
             'items': [{'product': self.pid, 'quantity': '2.000', 'unit_price': '100.00', 'gst_rate': '18.00', 'price_includes_tax': False}],
             'gst_enabled': True, 'discount': '10.00', 'paid_amount': '100.00', 'payment_method': 'cash', 'expected_total': '224.20', **changes})
 
+    @override_settings(TESTING=False, DEBUG=False, SECURE_SSL_REDIRECT=False)
+    def test_production_mobile_login_requires_https(self):
+        data = {'mobile': self.user.login_mobile, 'password': 'Test-Password-2026!'}
+        client = HTTPSAPIClient()
+        rejected = client.post('/api/mobile/login/', data, format='json', HTTP_X_FORWARDED_PROTO='http')
+        self.assertEqual(rejected.status_code, 403)
+        self.assertEqual(str(rejected.data['detail']), 'HTTPS is required.')
+        self.assertEqual(client.post('/api/mobile/login/', data, format='json').status_code, 200)
+
     def test_tokens_are_hashed_revocable_and_browser_auth_is_unchanged(self):
         device = m.MobileDevice.objects.get(pk=self.device)
         self.assertEqual(len(device.token_digest), 64)
         self.assertNotIn('sessionid', self.client.cookies)
-        anonymous = APIClient(); self.assertEqual(anonymous.get('/api/mobile/pull/').status_code, 401)
+        anonymous = HTTPSAPIClient(); self.assertEqual(anonymous.get('/api/mobile/pull/').status_code, 401)
         anonymous.force_login(self.user)
         self.assertEqual(anonymous.get('/api/mobile/pull/').status_code, 401)
         self.assertEqual(self.client.post('/api/mobile/devices/', {}, format='json').status_code, 200)
@@ -65,7 +74,7 @@ class AndroidSyncTests(TestCase):
 
     def test_device_reactivation_cannot_switch_business(self):
         other, _, _, _ = fixture('other@example.com')
-        response = APIClient().post('/api/mobile/login/', {'mobile':other.login_mobile,'password':'Test-Password-2026!','device_id':self.device},format='json')
+        response = HTTPSAPIClient().post('/api/mobile/login/', {'mobile':other.login_mobile,'password':'Test-Password-2026!','device_id':self.device},format='json')
         self.assertEqual(response.status_code,403)
 
     def test_invoice_replay_preserves_stock_payment_and_original(self):
@@ -89,7 +98,7 @@ class AndroidSyncTests(TestCase):
 
     def test_two_devices_overselling_preserves_both_sales_and_warns(self):
         self.product.stock=2;self.product.save()
-        other=APIClient();self.login(other)
+        other=HTTPSAPIClient();self.login(other)
         self.assertEqual(self.push(self.sale())['status'],'accepted')
         result=self.push(self.sale(),other)
         self.assertEqual(result['status'],'accepted');self.assertIn('Stock reconciliation',result['warning'])
@@ -99,7 +108,7 @@ class AndroidSyncTests(TestCase):
         key=str(uuid.uuid4())
         first=self.client.post('/api/mobile/ranges/',{'id':key},format='json').data
         self.assertEqual(self.client.post('/api/mobile/ranges/',{'id':key},format='json').data,first)
-        other=APIClient();self.login(other)
+        other=HTTPSAPIClient();self.login(other)
         second=other.post('/api/mobile/ranges/',{'id':str(uuid.uuid4())},format='json').data
         self.assertGreater(second['start'],first['end'])
         web,_=create_invoice(self.user,self.business,payload(self.product,self.customer))
@@ -137,7 +146,7 @@ class AndroidSyncTests(TestCase):
         self.product.refresh_from_db();self.assertEqual(self.product.stock,23);self.assertEqual(self.product.selling_price,200)
 
     def test_cross_tenant_cursor_records_and_number_ranges_are_denied(self):
-        other,_,_,_=fixture('other@example.com');client=APIClient();self.login(client,other)
+        other,_,_,_=fixture('other@example.com');client=HTTPSAPIClient();self.login(client,other)
         self.assertEqual(client.get('/api/mobile/pull/',{'cursor':self.page['cursor']}).status_code,400)
         result=self.push(self.op('stock.adjust',self.pid,{'delta':'100','reason':'Attack'}),client)
         self.assertEqual(result['status'],'conflict');self.product.refresh_from_db();self.assertEqual(self.product.stock,20)
@@ -184,7 +193,7 @@ class AndroidSyncTests(TestCase):
 class AndroidConcurrentSyncTests(TransactionTestCase):
     def setUp(self):
         self.user,self.business,self.product,self.customer=fixture()
-        client=APIClient()
+        client=HTTPSAPIClient()
         login=client.post('/api/mobile/login/',{'mobile':self.user.login_mobile,'password':'Test-Password-2026!'},format='json')
         self.assertEqual(
             login.status_code,
@@ -198,7 +207,7 @@ class AndroidConcurrentSyncTests(TransactionTestCase):
     def call(self,path,data):
         close_old_connections()
         try:
-            client=APIClient();client.credentials(HTTP_AUTHORIZATION='Bearer '+self.token)
+            client=HTTPSAPIClient();client.credentials(HTTP_AUTHORIZATION='Bearer '+self.token)
             response=client.post('/api/mobile/'+path+'/',data,format='json')
             return response.status_code,response.data
         finally: close_old_connections()

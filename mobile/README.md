@@ -2,7 +2,19 @@
 
 This is a native React Native/Expo application, not a website wrapper. It uses the existing Django accounts, business models and Neon connection through authenticated HTTPS APIs. The existing Next.js website remains in `frontend/`.
 
-**Status (18 October 2026): implemented and tested offline billing/sync core; Android release validation is still pending. No signed APK or AAB has been produced.** This PC has no configured Java/Android SDK/emulator, and the owner has not supplied an Expo account/project. EAS Cloud Build is prepared. Do not describe the JavaScript bundle or generated Android sources as an installable APK.
+**Status: offline billing/sync core is implemented. The GitHub Actions workflow below builds an internal testing APK without local Java or Android Studio. Production signing and physical-device acceptance remain separate release requirements. Only a successful workflow upload confirms an APK exists.**
+
+## Download an internal APK from GitHub Actions
+
+Open **Actions → Build Billora APK**, choose **Run workflow → codex/billora**. Changes to mobile files on that branch also trigger it. If GitHub does not show manual dispatch until the workflow is on the default branch, use the automatic push run; the workflow always checks out codex/billora.
+
+Repository **Settings → Secrets and variables → Actions → Variables** must contain **BILLORA_API_URL** with the confirmed public HTTPS Django origin. It is mapped to EXPO_PUBLIC_API_BASE_URL during bundling; no database or Django secrets are passed to the build. Missing/invalid origins fail before compilation.
+
+A successful run uploads **billora-android-test-apk** in its **Artifacts** section. Extract the ZIP and install **billora-internal-test-arm64.apk** on an ARM64 Android phone. It uses the standard Android **debug signing** key but the standalone release variant embeds Hermes/JavaScript and needs no Metro server. This is **INTERNAL TEST ONLY**, not production signing. The package remains **com.billora.app**. The artifact includes its SHA-256 checksum and is retained for 30 days. Do not uninstall an existing app containing unsynced data to resolve a signing mismatch.
+
+The runner uses Node 22, Temurin JDK 17, SDK/build tools 36, NDK 27.1.12297006 and CMake 3.22.1. Prebuild verifies SQLCipher and thermal-printer registration; Gradle compiles the native modules and APK. Compiler errors appear in the job log and the failure artifact.
+
+For production signing later, use the existing EAS **production** profile below with **persistent EAS-managed Android credentials**. Initialize your actual account/project, import an existing package keystore when applicable, and retain the same credentials for all updates. Never generate a new release key per workflow run. Missing EAS credentials do not block the GitHub internal APK.
 
 ## Configuration and APK build
 
@@ -21,7 +33,7 @@ The only mobile environment variable is:
 EXPO_PUBLIC_API_BASE_URL=https://billora-api-0mml.onrender.com
 ```
 
-This is the address supplied by the owner **pending deployment confirmation**, not a verified live endpoint. Edit `.env.local` to the actual public **Django origin**, without `/api`, query parameters, credentials or a trailing path. Nothing falls back to a hardcoded URL. The application rejects HTTP in release mode. Never place `DATABASE_URL`, `DJANGO_SECRET_KEY`, signing passwords, admin credentials or private API keys in `EXPO_PUBLIC_*`.
+This owner-supplied origin was verified on 18 October 2026: `/api/health/` returned 200 and `/api/mobile/login/` OPTIONS returned the Django Device Login API. This checks endpoint identity, not account activation or database migration completeness. Edit `.env.local` to the actual public **Django origin**, without `/api`, query parameters, credentials or a trailing path. Nothing falls back to a hardcoded URL. The application rejects HTTP in release mode. Never place `DATABASE_URL`, `DJANGO_SECRET_KEY`, signing passwords, admin credentials or private API keys in `EXPO_PUBLIC_*`.
 
 Configure EAS interactively using your own account:
 
@@ -41,7 +53,7 @@ Only after authentication, project linking, API configuration and signing creden
 npx eas-cli build --platform android --profile production
 ```
 
-The EAS command will return the actual build page/download link. **There is currently no APK download link or artifact path.** Install the downloaded preview APK on an Android phone, enable installation from that trusted source, and run the acceptance checklist below with Metro stopped.
+The EAS command will return the actual build page/download link. Install the downloaded preview APK on an Android phone, enable installation from that trusted source, and run the acceptance checklist below with Metro stopped.
 
 The configured identifier is `com.billora.app`; it matches the generated native package and has no conflicting native app in this repository. Global Play Console availability/ownership cannot be verified without your Play Console account. To change it before the first release, edit `android.package` in `app.json`, then regenerate with `npx expo prebuild --platform android`. The printer module uses a separate Java namespace and continues to register through its config plugin. Changing the application ID after installation creates a separate app/data sandbox.
 
@@ -68,7 +80,7 @@ The migration only adds mobile session/mapping/outbox-audit/feed/number-allocati
 
 Legacy accounts still require a verified `login_mobile` mapping. No new account can authenticate offline. Temporary-password users must change their password on the website before activating a phone. A platform administrator must exist to review conflicts/revoke lost devices; none was silently created.
 
-For local development, use the emulator's `http://10.0.2.2:8000` or your PC's LAN address in a **development** build, bind Django to an appropriate interface and allow that host. Release builds continue to require HTTPS. The tests use mock transport responses plus isolated Django/SQLite/PostgreSQL fixtures; they do not call the unconfirmed Render URL.
+For local development, use the emulator's `http://10.0.2.2:8000` or your PC's LAN address in a **development** build, bind Django to an appropriate interface and allow that host. Release builds continue to require HTTPS. The tests use mock transport responses plus isolated Django/SQLite/PostgreSQL fixtures; they do not call the Render API.
 
 ## Implemented native workflows
 

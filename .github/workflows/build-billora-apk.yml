@@ -1,0 +1,112 @@
+name: Build Billora APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/billora]
+    paths:
+      - mobile/**
+      - .github/workflows/build-billora-apk.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: billora-internal-apk
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: "1"
+      NODE_ENV: production
+      BILLORA_APK_BUILD: "true"
+      EXPO_PUBLIC_API_BASE_URL: ${{ vars.BILLORA_API_URL }}
+    defaults:
+      run:
+        working-directory: mobile
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/billora
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Validate public API configuration
+        run: |
+          node - <<'NODE'
+          const value=process.env.EXPO_PUBLIC_API_BASE_URL;
+          if(!value)throw Error('Set repository variable BILLORA_API_URL to your confirmed HTTPS Django origin.');
+          const url=new URL(value);
+          if(url.protocol!=='https:' || url.username || url.password || url.pathname!=='/' || url.search || url.hash)
+            throw Error('BILLORA_API_URL must be an HTTPS origin without credentials, paths or query parameters.');
+          NODE
+      - name: Install locked dependencies and validate app
+        run: |
+          npm ci --include=dev
+          npm test
+          npm run typecheck
+          npx expo-doctor
+          npx expo config --type public --json > /tmp/billora-expo-config.json
+          node -e "const c=require('/tmp/billora-expo-config.json'); if(c.android.package!=='com.billora.app') throw Error('Unexpected Android package');"
+      - name: Generate Android project with SQLCipher and thermal printer
+        run: |
+          npx expo prebuild --platform android --no-install
+          grep -q 'expo.sqlite.useSQLCipher=true' android/gradle.properties
+          grep -q 'add(BilloraPrinterPackage())' android/app/src/main/java/com/billora/app/MainApplication.kt
+          test -s android/app/src/main/java/com/billora/printer/BilloraPrinter.kt
+          grep -q 'signingConfig signingConfigs.debug' android/app/build.gradle
+      - name: Install Android build toolchain
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "cmake;3.22.1"
+      - name: Build standalone INTERNAL TEST APK (debug signing)
+        run: |
+          set -o pipefail
+          chmod +x android/gradlew
+          cd android
+          # Release variant embeds Hermes/JS and runs without Metro. The Expo template
+          # uses the standard debug keystore: this artifact is NOT a production release.
+          ./gradlew :app:assembleRelease --no-daemon --max-workers=2 --stacktrace \
+            -PreactNativeArchitectures=arm64-v8a \
+            -Porg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1g" 2>&1 | tee ../android-build.log
+      - name: Verify signed standalone APK
+        run: |
+          mkdir -p apk-artifact
+          cp android/app/build/outputs/apk/release/app-release.apk apk-artifact/billora-internal-test-arm64.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose apk-artifact/billora-internal-test-arm64.apk
+          unzip -l apk-artifact/billora-internal-test-arm64.apk > apk-contents.txt
+          grep -q 'assets/index.android.bundle' apk-contents.txt
+          sha256sum apk-artifact/*.apk > apk-artifact/SHA256SUMS.txt
+          printf '%s\n' 'INTERNAL TEST ONLY — standard Android debug signing, ARM64 phones.' 'Standalone: Metro is not required. Package: com.billora.app.' 'Do not uninstall an existing installation with pending offline data.' > apk-artifact/README.txt
+      - uses: actions/upload-artifact@v4
+        id: upload
+        with:
+          name: billora-android-test-apk
+          path: mobile/apk-artifact/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Download instructions
+        env:
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          echo '### Billora INTERNAL TEST APK — debug signed, ARM64' >> "$GITHUB_STEP_SUMMARY"
+          echo "Download: $ARTIFACT_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Extract the ZIP and install the APK. No Metro server is needed. This is not production signing.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: billora-apk-build-errors
+          path: |
+            mobile/android-build.log
+            mobile/android/build/reports/
+          if-no-files-found: ignore
