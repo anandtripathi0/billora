@@ -103,8 +103,11 @@ test('complete billing workflow with real authentication, PDFs, QR and manual sh
   expect((await publicPdf.body()).subarray(0,5).toString()).toBe('%PDF-');
   const privateResponse=await publicContext.request.get(new URL(`/api${invoicePath}/`,page.url()).href);
   expect([401,403]).toContain(privateResponse.status());
+  await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:new URL(page.url()).origin});
+  await page.bringToFront();
   await dialog.getByRole('button',{name:'Copy Invoice Message',exact:true}).click();
   await expect(page.getByRole('status')).toContainText('Copied to clipboard');
+  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(message);
   // Verify a user-initiated popup without contacting WhatsApp or sending anything.
   await context.route('https://wa.me/**', route=>route.fulfill({contentType:'text/html',body:'WhatsApp handoff test'}));
   const opening=page.waitForEvent('popup');

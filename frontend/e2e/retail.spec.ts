@@ -55,7 +55,7 @@ test('mobile-first sale, collection, thermal widths, paired mock printing and ca
   const body={invoice:id,device:device.id,width:58,idempotency_key:crypto.randomUUID()};
   const first=await post('printing/jobs/',body),second=await post('printing/jobs/',body);expect(second.id).toBe(first.id);
   const claimed=await (await request.post('/api/printing/agent/poll/',{data:{},headers:auth})).json();expect(claimed.job.id).toBe(first.id);
-  const python=resolve('..','.venv','Scripts','python.exe');
+  const python=process.env.PYTHON_EXECUTABLE || (process.platform==='win32' ? resolve('..','.venv','Scripts','python.exe') : 'python3');
   const mock=spawnSync(python,['-c',"import json,sys,tempfile;from pathlib import Path;from printer_bridge.agent import Ledger; j=json.load(sys.stdin); folder=Path(sys.argv[1]); folder.mkdir(parents=True,exist_ok=True); db=Ledger(folder/'jobs.sqlite3'); cfg={'width':58,'connection':'mock','mock_file':str(folder/'receipt.bin')}; result=db.process(j,cfg); again=db.process(j,cfg); assert result==again; print(json.dumps({'status':result[0],'detail':result[1]})); db.db.close()",testInfo.outputPath('bridge')],{cwd:resolve('..'),input:JSON.stringify(claimed.job),encoding:'utf8'});
   expect(mock.status,mock.stderr).toBe(0);const result=JSON.parse(mock.stdout);expect(result.status).toBe('spooled');
   expect((await request.post('/api/printing/agent/ack/',{data:{job:first.id,...result},headers:auth})).ok()).toBe(true);
