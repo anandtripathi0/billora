@@ -1,5 +1,7 @@
 # Billora
 
+Native offline Android source, SQLite sync protocol, EAS APK setup, and test limitations: [mobile guide](mobile/README.md). A signed APK has not yet been built; Expo account/project setup and Android device validation are still required.
+
 Current signup, mobile login, safe deletion and legacy-account setup: [implementation report](docs/MOBILE_AUTH_DELETION.md).
 
 Measured authentication and database optimizations, timing instrumentation, results and deployment commands: [performance report](docs/PERFORMANCE.md).

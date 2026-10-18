@@ -22,3 +22,12 @@ playwright-report/
 .buildtemp/
 .npm-cache/
 .e2e.sqlite3
+mobile/.expo/
+mobile/android/
+mobile/ios/
+mobile/dist/
+*.jks
+*.keystore
+credentials.json
+*.apk
+*.aab

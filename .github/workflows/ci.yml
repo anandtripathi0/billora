@@ -1,6 +1,16 @@
 name: Billora checks
 on: [push, pull_request]
 jobs:
+  mobile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: "22", cache: npm, cache-dependency-path: mobile/package-lock.json}
+      - run: npm ci && npm test && npm run typecheck
+        working-directory: mobile
+      - run: npx expo-doctor && npx expo prebuild --platform android --no-install && npx expo export --platform android
+        working-directory: mobile
   verify:
     runs-on: ubuntu-latest
     services:

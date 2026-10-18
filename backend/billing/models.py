@@ -274,3 +274,5 @@ class RateLimit(models.Model):
     key = models.CharField(max_length=64, primary_key=True)
     attempts = models.PositiveIntegerField(default=0)
     reset_at = models.DateTimeField(db_index=True)
+
+from .mobile_models import MobileDevice, MobileMapping, MobileOperation, MobileRecord, MobileChange, MobileNumberRange  # noqa: E402,F401

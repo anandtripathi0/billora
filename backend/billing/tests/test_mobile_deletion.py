@@ -193,7 +193,8 @@ class LegacyMigrationTests(TransactionTestCase):
                 self.assertEqual(user.legacy_mobile_candidate,None if user.mobile=='invalid' else '+919876543210')
             self.assertEqual(m.User.objects.filter(username__startswith='legacy-').count(),3)
         finally:
-            MigrationExecutor(connection).migrate([('billing','0009_mobile_auth_and_safe_deletion')])
+            executor = MigrationExecutor(connection)
+            executor.migrate(executor.loader.graph.leaf_nodes())
 
 @skipUnless(connection.vendor=='postgresql','Requires PostgreSQL row locks.')
 class DeleteConcurrencyTests(TransactionTestCase):

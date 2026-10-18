@@ -68,3 +68,4 @@ class ImmutableAdmin(admin.ModelAdmin):
 
 for model in [m.Invoice, m.InvoiceItem, m.Payment, m.SharingToken, m.MessageLog, m.AuditLog, m.SubscriptionPayment]:
     admin.site.register(model, ImmutableAdmin)
+from . import mobile_admin  # noqa: F401 - register native device audit views
