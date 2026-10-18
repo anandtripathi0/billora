@@ -111,7 +111,17 @@ If a range is missing/exhausted/outside the financial year, the original PDF say
 
 ## Printing support and limitations
 
-The custom Android adapter supports generic ESC/POS over paired **Bluetooth Classic SPP**, **LAN TCP port 9100**, or **USB OTG bulk OUT**. Settings provides connection/address, width, pairing/listing and test printing. Android 12+ requests Nearby Devices/Bluetooth Connect permission; USB permission is granted by Android. BLE-only/proprietary printers are not assumed compatible. Generic text receipts use ASCII (`Rs`); use PDF/system printing for Hindi or other Unicode scripts. ESC/POS QR commands require compatible firmware; raster QR printing is not implemented.
+The custom Android adapter supports generic ESC/POS over paired **Bluetooth Classic SPP**, **LAN TCP port 9100**, or **USB OTG bulk OUT**. Open **Printer setup** from the dashboard or an invoice (also available in Settings). Bluetooth is selected by default. Android 12+ requests Nearby Devices/Bluetooth Connect permission; USB permission is granted by Android. BLE-only/proprietary printers are not assumed compatible. Generic text receipts use ASCII (`Rs`); use PDF/system printing for Hindi or other Unicode scripts. ESC/POS QR commands require compatible firmware; raster QR printing is not implemented.
+
+Bluetooth setup on the installed native APK:
+
+1. Turn on the thermal printer. Tap **Pair printer / turn on Bluetooth** and pair using Android settings (use the printer manufacturer’s PIN if prompted).
+2. Return to Billora and unlock. The app restores the printer page in memory. Tap **Refresh printer list** and allow **Nearby devices**. If permission was permanently denied, use **Android app permissions**.
+3. Tap the printer’s name in the paired-device list. Choose **58 mm** or **80 mm**, then **Connect & save printer**. The app opens a bounded SPP connection to verify reachability and saves the printer for this shop on this phone. It closes that test connection and reconnects for each receipt; the UI does not claim a permanent live connection.
+4. Tap **Print test receipt** and check the paper. Create/save an invoice, or open an existing invoice, then tap **Print thermal receipt**. Use **Printer setup / Bluetooth** on that screen to change the printer. No internet connection is needed for printing saved invoices.
+5. **Forget saved printer** removes the app selection without unpairing it from Android. Bluetooth-off, unavailable adapter, unpaired devices and failed connections report actionable errors. Close Android device discovery and disconnect another phone if it is already using the printer.
+
+This native-module change requires a new EAS APK build and install; refreshing Metro/Expo Go or localhost does not add Android Bluetooth support. No new environment variables or backend changes are required. Pairing uses the Android system UI; the app lists bonded devices and does not request location or Bluetooth scanning permissions. The connection code follows [Android BluetoothSocket APIs](https://developer.android.com/reference/android/bluetooth/BluetoothSocket).
 
 Print attempts are recorded locally before sending bytes. A repeat asks for explicit reprint; no automatic transport retries occur. A successful write means bytes were sent, not that paper was printed. Check the device after an uncertain result. Reprinting cannot create another invoice. No request is sent to Render to reach a local printer.
 
@@ -129,7 +139,7 @@ Logout requires a successful online revocation and no pending/conflicted operati
 
 Executed locally:
 
-- Native-core tests use real SQLite through Node's SQLite driver: 12 passed, covering money, offline save, repeated taps, transactional failure, restart, tenant binding, number exhaustion, CRUD, staged/interrupted pulls, tombstones, retry/revocation, mocked sync, PDF HTML escaping, offline QR and UPI settings.
+- Mobile tests: 18 passed, including six printer regressions covering paper widths, ESC/POS encoding/QR amount, control-character sanitization, printer validation, failed/repeated prints, concurrent taps and cancellation before sending. Native-core tests use real SQLite through Node's SQLite driver, covering money, offline save, repeated taps, transactional failure, restart, tenant binding, number exhaustion, CRUD, staged/interrupted pulls, tombstones, retry/revocation, mocked sync, PDF HTML escaping, offline QR and UPI settings.
 - Django suite: 127 discovered; 116 passed, 11 PostgreSQL-only skips in SQLite mode.
 - After final settings/pagination/admin changes: focused Django suite 36 discovered; 32 passed, 4 PostgreSQL-only skips. This includes the additional paginated-feed/settings test.
 - Disposable Neon PostgreSQL: 4 tests passed, covering concurrent duplicate sync, concurrent range reservation, simultaneous offline overselling and invoice replay/stock/payment correctness. Test database destroyed; existing shop records untouched.

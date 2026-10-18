@@ -3,6 +3,7 @@ package com.billora.printer
 import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothSocket
 import android.content.*
 import android.hardware.usb.*
 import android.os.Build
@@ -27,6 +28,33 @@ class BilloraPrinter(private val context: ReactApplicationContext) : ReactContex
   override fun getName() = "BilloraPrinter"
   private fun usb() = context.getSystemService(Context.USB_SERVICE) as UsbManager
   private fun bluetooth() = (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
+  private fun readyBluetooth() = (bluetooth() ?: throw Exception("This phone has no Bluetooth adapter.")).also {
+    check(it.isEnabled) {"Bluetooth is off. Turn it on in Android Bluetooth settings."}
+  }
+  // Every operation uses a fresh connection. Never retain a stale 'connected' flag.
+  private fun withBluetooth(address: String, action: (BluetoothSocket) -> Unit) {
+    val adapter=readyBluetooth()
+    val device=adapter.bondedDevices.firstOrNull {it.address.equals(address, ignoreCase=true)}
+      ?: throw Exception("Printer is not paired. Pair it in Android Bluetooth settings, then refresh the list.")
+    val socket=device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"))
+    val watchdog=Thread {try {Thread.sleep(20000);socket.close()} catch (_: Exception) {}}
+    watchdog.isDaemon=true;watchdog.start()
+    try {socket.connect();action(socket)}
+    finally {watchdog.interrupt();try {socket.close()} catch (_: Exception) {}}
+  }
+  @ReactMethod fun bluetoothStatus(promise: Promise) {
+    try {
+      val adapter=bluetooth();val result=Arguments.createMap()
+      result.putBoolean("available",adapter!=null);result.putBoolean("enabled",adapter?.isEnabled==true)
+      promise.resolve(result)
+    } catch(e: Exception) {promise.reject("BLUETOOTH", "Allow Nearby devices permission in Android app settings.")}
+  }
+  @ReactMethod fun checkBluetooth(address: String, promise: Promise) {
+    worker.execute {
+      try {withBluetooth(address) {};promise.resolve(true)}
+      catch(e: Exception) {promise.reject("CONNECT", "${e.message} Turn on the printer, keep it nearby and disconnect other phones using it. Only Bluetooth Classic SPP printers are supported.")}
+    }
+  }
   @ReactMethod fun pair(promise: Promise) {
     try {context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); promise.resolve(true)}
     catch (e: Exception) {promise.reject("PAIR", "Open Android Bluetooth settings manually.")}
@@ -34,14 +62,14 @@ class BilloraPrinter(private val context: ReactApplicationContext) : ReactContex
   @ReactMethod fun devices(transport: String, promise: Promise) {
     try {
       val out = Arguments.createArray()
-      if (transport == "bluetooth") bluetooth()?.bondedDevices?.forEach { d ->
+      if (transport == "bluetooth") readyBluetooth().bondedDevices.forEach { d ->
         val item=Arguments.createMap();item.putString("name",d.name ?: "Paired printer");item.putString("address",d.address);out.pushMap(item)
       }
       if (transport == "usb") usb().deviceList.values.forEach { d ->
         val item=Arguments.createMap();item.putString("name",d.productName ?: "USB device");item.putString("address",d.deviceName);out.pushMap(item)
       }
       promise.resolve(out)
-    } catch (e: Exception) {promise.reject("DEVICES", "Cannot list printers. Check Android permissions.")}
+    } catch (e: Exception) {promise.reject("DEVICES", e.message ?: "Cannot list printers. Check Android permissions.")}
   }
   @ReactMethod fun print(transport: String, address: String, base64: String, promise: Promise) {
     worker.execute {
@@ -62,13 +90,7 @@ class BilloraPrinter(private val context: ReactApplicationContext) : ReactContex
             }
           }
           "bluetooth" -> {
-            val adapter=bluetooth() ?: throw Exception("Bluetooth is unavailable.")
-            val device=adapter.bondedDevices.firstOrNull {it.address==address} ?: throw Exception("Pair the printer in Android Settings first.")
-            val socket=device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"))
-            // A watchdog also bounds vendor stacks whose connect/write calls never return.
-            val watchdog=Thread {try {Thread.sleep(20000);socket.close()} catch (_: Exception) {}}
-            watchdog.isDaemon=true;watchdog.start()
-            try {socket.connect();socket.outputStream.write(bytes);socket.outputStream.flush()} finally {watchdog.interrupt();socket.close()}
+            withBluetooth(address) {socket -> socket.outputStream.write(bytes);socket.outputStream.flush()}
           }
           "usb" -> {
             val manager=usb();val device=manager.deviceList[address] ?: throw Exception("USB printer is not connected.")

@@ -105,3 +105,28 @@ test('UPI settings are durable offline changes; a failed product update blocks f
   const op=await store.enqueue('product.update',pid,{name:'Rice',sku:'R1',selling_price:'90',gst_rate:'18'},'p1');await store.acknowledge(op.id,{status:'conflict',detail:'Concurrent edit'});
   await store.pullPage([],'done',true);await assert.rejects(store.saveBill(bill()),/sync issue/);db.close();
 });
+
+test('printer failure retains attempt marker, requires reprint consent, and never changes invoices',async()=>{
+  const {sendReceipt}=await import('../src/print-job');
+  const {db,store}=await setup();const receipt=await store.saveBill(bill());
+  await db.runAsync('INSERT INTO app_settings VALUES(?,?,?)',business,'printer',JSON.stringify({transport:'bluetooth',address:'AA:BB:CC:DD:EE:FF',width:58}));
+  const before=JSON.stringify(await store.get('invoice',receipt.id));
+  const pending=(await store.pending()).length;
+  let sends=0,confirmations=0;
+  const io={prepare:async()=>{},active:()=>true,confirmReprint:async()=>{confirmations++;return false;},send:async()=>{sends++;throw new Error('socket lost');}};
+  await assert.rejects(sendReceipt(store,receipt,io),/socket lost/);
+  assert.equal(await sendReceipt(store,receipt,io),false);assert.equal(sends,1);assert.equal(confirmations,1);
+  assert.equal(await sendReceipt(store,receipt,{...io,confirmReprint:async()=>true,send:async()=>{sends++;}}),true);
+  assert.equal(sends,2);assert.equal(JSON.stringify(await store.get('invoice',receipt.id)),before);assert.equal((await store.pending()).length,pending);db.close();
+});
+test('simultaneous print taps are blocked; leaving the screen before sending cancels safely',async()=>{
+  const {sendReceipt}=await import('../src/print-job');
+  const {db,store}=await setup();const receipt=await store.saveBill(bill());
+  await db.runAsync('INSERT INTO app_settings VALUES(?,?,?)',business,'printer',JSON.stringify({transport:'bluetooth',address:'AA:BB:CC:DD:EE:FF',width:58}));
+  let release!:()=>void,started!:()=>void,sends=0;
+  const barrier=new Promise<void>(resolve=>{release=resolve;}),ready=new Promise<void>(resolve=>{started=resolve;});
+  const io={prepare:async()=>{started();await barrier;},active:()=>false,confirmReprint:async()=>true,send:async()=>{sends++;}};
+  const first=sendReceipt(store,receipt,io);await ready;
+  await assert.rejects(sendReceipt(store,receipt,io),/already being sent/);release();assert.equal(await first,false);
+  assert.equal(sends,0);assert.equal(await db.getFirstAsync('SELECT value FROM app_settings WHERE business=? AND key=?',business,`print:${receipt.id}`),null);db.close();
+});

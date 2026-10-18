@@ -1,6 +1,6 @@
 import React, {createContext, useCallback, useContext, useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, Alert, AppState, FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View} from 'react-native';
-import {NavigationContainer, DefaultTheme, useFocusEffect} from '@react-navigation/native';
+import {NavigationContainer, DefaultTheme, useFocusEffect, NavigationState} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
@@ -43,6 +43,8 @@ function useRecords(kind:'product'|'customer'|'invoice') {
 }
 
 export default function App() {
+  // In-memory routes survive the security lock when Android pairing/permissions opens.
+  const navigationState=useRef<NavigationState|undefined>(undefined);
   const [session,setSession]=useState<Session|null>(null),[store,setStore]=useState<Store|null>(null),[locked,setLocked]=useState(true),[boot,setBoot]=useState(true);
   const [online,setOnline]=useState(false),[syncText,setSyncText]=useState('Offline — saved on this device'),[refresh,setRefresh]=useState(0),[engine,setEngine]=useState<SyncEngine|null>(null);
   const changed=()=>setRefresh(x=>x+1),{busy,run}=useAction();
@@ -63,9 +65,9 @@ export default function App() {
     {session&&!session.blocked&&Date.parse(session.expires_at)>Date.now()?<Card><Text style={styles.subtitle}>{session.business.name}</Text><Button title={busy?'Unlocking…':'Unlock with device screen lock'} disabled={busy} onPress={()=>void run(async()=>{await unlock();await enter(session,store);})}/><Note>New device activation and expired sessions require internet. Unsynced bills stay on this phone.</Note></Card>:
     <Login busy={busy} run={run} onLogin={async(m,p)=>enter(await activate(m,p),store)} existing={!!session}/>}
     <Note>{online?'Online':'Offline'} · Uninstalling Billora or clearing its storage can destroy unsynced bills.</Note></Page></SafeAreaProvider>;
-  const value:Context={store,session,online,syncText,engine,refresh,changed,lock:close,logout:async()=>{if(engine.running)throw new Error('Wait for the current sync to finish.');engine.stopped=true;await signOut(session,store);setSession(null);setStore(null);setEngine(null);setLocked(true);}};
-  return <SafeAreaProvider><Workspace.Provider value={value}><NavigationContainer theme={{...DefaultTheme,colors:{...DefaultTheme.colors,background:colors.bg,card:colors.card,text:colors.heading,primary:colors.primary,border:colors.border}}}><Stack.Navigator screenOptions={{headerShadowVisible:false,headerTintColor:colors.heading,contentStyle:{backgroundColor:colors.bg}}}>
-    <Stack.Screen name="Dashboard" component={Dashboard} options={{title:'Billora'}}/>
+  const value:Context={store,session,online,syncText,engine,refresh,changed,lock:close,logout:async()=>{if(engine.running)throw new Error('Wait for the current sync to finish.');engine.stopped=true;await signOut(session,store);navigationState.current=undefined;setSession(null);setStore(null);setEngine(null);setLocked(true);}};
+  return <SafeAreaProvider><Workspace.Provider value={value}><NavigationContainer initialState={navigationState.current} onStateChange={state=>{navigationState.current=state;}} theme={{...DefaultTheme,colors:{...DefaultTheme.colors,background:colors.bg,card:colors.card,text:colors.heading,primary:colors.primary,border:colors.border}}}><Stack.Navigator initialRouteName="Dashboard" screenOptions={{headerShadowVisible:false,headerTintColor:colors.heading,contentStyle:{backgroundColor:colors.bg}}}>
+    <Stack.Screen name="Printer setup" component={PrinterSettings}/><Stack.Screen name="Dashboard" component={Dashboard} options={{title:'Billora'}}/>
     <Stack.Screen name="Create Bill" component={CreateBill}/><Stack.Screen name="Invoices" component={Invoices}/><Stack.Screen name="Invoice" component={InvoiceDetail}/>
     <Stack.Screen name="Products" component={Products}/><Stack.Screen name="Product" component={ProductForm}/>
     <Stack.Screen name="Customers" component={Customers}/><Stack.Screen name="Customer" component={CustomerForm}/>
@@ -84,7 +86,7 @@ function Dashboard({navigation}:any) {
   const total=invoices.filter(x=>!x.cancelled_at).reduce((a,x)=>a+scaled(x.total),0);
   return <Page><Note>{online?'● Online':'● Offline'} · {session.role}</Note><Text style={styles.title}>{session.business.name}</Text><Text style={styles.text}>Ready for your next customer.</Text>
     <Button title="＋ Create a bill" onPress={()=>navigation.navigate('Create Bill')}/><Card><Note>Cached lifetime sales</Note><Text style={styles.title}>{rupees(total)}</Text><Note>{status.invoices?.n||0} pending invoices · {status.pending?.n||0} pending changes</Note><Note>{syncText}</Note><Button title="Sync now" secondary onPress={()=>void engine.run(true)}/></Card>
-    {['Invoices','Products','Customers','Customer Collection','Sync Status','Settings'].map(name=><Button key={name} title={name} secondary onPress={()=>navigation.navigate(name)}/>)}</Page>;
+    {['Invoices','Products','Customers','Customer Collection','Printer setup','Sync Status','Settings'].map(name=><Button key={name} title={name} secondary onPress={()=>navigation.navigate(name)}/>)}</Page>;
 }
 function Products({navigation}:any) {
   const records=useRecords('product'),[search,setSearch]=useState(''),[low,setLow]=useState(false);
@@ -125,12 +127,18 @@ function Invoices({navigation}:any) {
   const invoices=useRecords('invoice');
   return <SafeAreaView edges={['bottom']} style={styles.page}><FlatList data={[...invoices].sort((a,b)=>b.date.localeCompare(a.date))} keyExtractor={i=>i.id} contentContainerStyle={styles.content} ListHeaderComponent={<Button title="＋ Create bill" onPress={()=>navigation.navigate('Create Bill')}/>} renderItem={({item:i})=><Card><Text style={styles.subtitle}>{i.number||'Provisional bill'}</Text><Note>{i.customer_snapshot.name} · {i.date}</Note><Text style={styles.text}>₹{i.total} · Pending ₹{decimal(scaled(i.total)-scaled(i.paid_amount))}</Text><Note>{i.cancelled_at?'Cancelled':i.sync_status&&i.sync_status!=='synced'?'Saved on device — awaiting sync':'Synced'}</Note><Button title="View / print / share" secondary onPress={()=>navigation.navigate('Invoice',{id:i.id})}/></Card>}/></SafeAreaView>;
 }
-function InvoiceDetail({route}:any) {
+function PrinterSettings() {
+  const {store}=useWorkspace();
+  return <Page><PrinterPanel store={store}/></Page>;
+}
+function InvoiceDetail({route,navigation}:any) {
+  const mounted=useRef(true);
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
   const {store,refresh,changed}=useWorkspace(),[invoice,setInvoice]=useState<any>(null),[original,setOriginal]=useState<any>(null),[paid,setPaid]=useState(''),{run,busy}=useAction();
   useEffect(()=>{void store.get('invoice',route.params.id).then(setInvoice);void store.db.getFirstAsync<{body:string}>('SELECT body FROM original_receipts WHERE business=? AND id=?',store.business,route.params.id).then(r=>setOriginal(r?JSON.parse(r.body):null));},[store,route.params.id,refresh]);
   if(!invoice)return <Page><ActivityIndicator/></Page>;
   return <Page><Text style={styles.title}>{invoice.number||'Provisional bill'}</Text><Note>{invoice.customer_snapshot.name} · {invoice.date}</Note><Note>{invoice.sync_status&&invoice.sync_status!=='synced'?'Saved on device — awaiting sync':'Synchronized with Billora'}</Note><Card>{invoice.items.map((i:any,n:number)=><View key={n} style={styles.row}><Text style={[styles.text,{flex:1}]}>{i.description} × {i.quantity}</Text><Text style={styles.text}>₹{i.total}</Text></View>)}<Text style={styles.title}>₹{invoice.total}</Text><Note>Paid ₹{invoice.paid_amount} · Due ₹{decimal(scaled(invoice.total)-scaled(invoice.paid_amount))}</Note></Card>
-    <Button title="Print receipt / Android print" disabled={busy} onPress={()=>void run(()=>printInvoice(invoice))}/><Button title="Direct thermal printer" secondary disabled={busy} onPress={()=>void run(()=>thermalPrint(store,invoice))}/><Button title="Save PDF / share to WhatsApp" secondary disabled={busy} onPress={()=>void run(()=>shareInvoice(invoice))}/><Note>Choose WhatsApp in Android’s share sheet. Delivery requires connectivity. Reprinting never creates another bill.</Note>
+    <Button title="Print receipt / Android print" disabled={busy} onPress={()=>void run(()=>printInvoice(invoice))}/><Button title="Print thermal receipt" secondary disabled={busy} onPress={()=>void run(()=>thermalPrint(store,invoice,()=>mounted.current&&AppState.currentState==='active'))}/><Button title="Printer setup / Bluetooth" secondary disabled={busy} onPress={()=>navigation.navigate('Printer setup')}/><Button title="Save PDF / share to WhatsApp" secondary disabled={busy} onPress={()=>void run(()=>shareInvoice(invoice))}/><Note>Choose WhatsApp in Android’s share sheet. Delivery requires connectivity. Reprinting never creates another bill.</Note>
     {original&&<Button title="Export original device copy" secondary disabled={busy} onPress={()=>void run(()=>shareInvoice(original))}/>}
     {!invoice.cancelled_at&&scaled(invoice.paid_amount)<scaled(invoice.total)&&<Card><Field label="Additional payment ₹" value={paid} set={setPaid} numeric/><Button title="Record cash payment" disabled={busy} onPress={()=>void run(async()=>{await store.pay(invoice.id,paid,'cash');setPaid('');changed();})}/></Card>}</Page>;
 }
